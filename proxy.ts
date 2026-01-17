@@ -41,16 +41,16 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Protected routes - redirect to signin if not authenticated
-  if (pathname.startsWith('/dashboard') && !user) {
+  if (pathname.startsWith('/lobby') && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/signin'
     return NextResponse.redirect(url)
   }
 
-  // Auth routes - redirect to dashboard if already authenticated
+  // Auth routes - redirect to lobby if already authenticated
   if ((pathname === '/signin' || pathname === '/signup') && user) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/lobby'
     return NextResponse.redirect(url)
   }
 

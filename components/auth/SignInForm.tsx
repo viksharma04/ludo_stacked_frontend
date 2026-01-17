@@ -24,7 +24,7 @@ export function SignInForm() {
       setError(error.message)
       setIsLoading(false)
     } else {
-      router.push('/dashboard')
+      router.push('/lobby')
     }
   }
 

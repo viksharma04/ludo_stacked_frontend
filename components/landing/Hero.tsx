@@ -24,7 +24,7 @@ export function Hero() {
             <div className="h-12 w-32 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
           ) : user ? (
             <Link
-              href="/dashboard"
+              href="/lobby"
               className="px-8 py-3 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors text-center"
             >
               Play Now
