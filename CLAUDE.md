@@ -44,8 +44,21 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 A separate FastAPI backend exists (documented in `backend-readme.md`). Backend runs on http://localhost:8000 with API docs at `/docs`. The frontend and backend both use Supabase Auth - frontend handles OAuth flows, backend validates JWTs via JWKS.
 
+### Theming
+
+The app uses class-based dark mode with light as the default theme:
+
+- **ThemeContext** (`contexts/ThemeContext.tsx`): Manages theme state and localStorage persistence
+- **ThemeToggle** (`components/ThemeToggle.tsx`): Sun/moon toggle button
+- Dark mode is activated by adding `.dark` class to `<html>` element
+- Use `dark:` Tailwind prefix for dark mode styles
+- **Light theme is the default** - new pages should look good in light mode first
+
 ## Code Conventions
 
 - Path alias: `@/*` maps to project root
 - Tailwind CSS v4 for styling
 - TypeScript strict mode enabled
+- Default theme: Light mode (dark mode available via toggle)
+- **Font**: Roboto Mono (monospace) - configured in `app/layout.tsx`
+- **Accent color**: Use `bg-accent`, `hover:bg-accent-hover`, `text-accent`, `focus:ring-accent` instead of hardcoded blue values. The accent color is configurable in `app/globals.css` via `--accent` and `--accent-hover` CSS variables.
