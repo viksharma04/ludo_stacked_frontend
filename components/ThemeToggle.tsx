@@ -3,7 +3,19 @@
 import { useTheme } from '@/contexts/ThemeContext'
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme()
+  const { theme, toggleTheme, mounted } = useTheme()
+
+  // Render placeholder until mounted to avoid hydration mismatch
+  if (!mounted) {
+    return (
+      <button
+        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        aria-label="Toggle theme"
+      >
+        <div className="w-5 h-5" />
+      </button>
+    )
+  }
 
   return (
     <button
