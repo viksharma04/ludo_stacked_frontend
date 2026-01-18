@@ -27,9 +27,8 @@ export default function RootLayout({
             __html: `
               (function() {
                 var theme = localStorage.getItem('theme');
-                if (theme !== 'dark') {
+                if (theme !== 'light' && theme !== 'dark') {
                   theme = 'light';
-                  localStorage.setItem('theme', 'light');
                 }
                 document.documentElement.classList.add(theme);
               })();

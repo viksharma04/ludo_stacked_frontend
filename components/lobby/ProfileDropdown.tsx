@@ -14,36 +14,27 @@ export function ProfileDropdown() {
 
   const userInitial = user?.email?.charAt(0).toUpperCase() || '?'
 
-  // Close on click outside
+  // Close on click outside or escape key
   useEffect(() => {
+    if (!isOpen) return
+
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false)
       }
     }
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen])
-
-  // Close on escape key
-  useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setIsOpen(false)
       }
     }
 
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape)
-    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
 
     return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleEscape)
     }
   }, [isOpen])
