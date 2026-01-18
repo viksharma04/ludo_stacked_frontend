@@ -7,6 +7,7 @@ type Theme = 'light' | 'dark'
 interface ThemeContextType {
   theme: Theme
   toggleTheme: () => void
+  mounted: boolean
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
@@ -26,7 +27,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Mark as mounted on client
   useEffect(() => {
-    queueMicrotask(() => setMounted(true))
+    setMounted(true)
   }, [])
 
   // Apply theme to document
@@ -49,7 +50,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, mounted }}>
       {children}
     </ThemeContext.Provider>
   )
