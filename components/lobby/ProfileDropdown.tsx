@@ -10,6 +10,7 @@ import { EditProfileModal } from './EditProfileModal'
 export function ProfileDropdown() {
   const [isOpen, setIsOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [imageError, setImageError] = useState(false)
   const { user, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { profile } = useProfile()
@@ -19,6 +20,11 @@ export function ProfileDropdown() {
   const displayName = profile?.display_name
   const avatarUrl = profile?.avatar_url
   const userInitial = displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || '?'
+
+  // Reset image error state when avatar URL changes
+  useEffect(() => {
+    setImageError(false)
+  }, [avatarUrl])
 
   // Close on click outside or escape key
   useEffect(() => {
@@ -64,11 +70,13 @@ export function ProfileDropdown() {
           aria-label="Profile menu"
           aria-expanded={isOpen}
         >
-          {avatarUrl ? (
+          {avatarUrl && !imageError ? (
             <img
               src={avatarUrl}
               alt="Profile"
               className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+              onError={() => setImageError(true)}
             />
           ) : (
             userInitial
@@ -108,7 +116,7 @@ export function ProfileDropdown() {
                   d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
                 />
               </svg>
-              <span className="text-sm text-gray-700 dark:text-gray-300">Edit Name</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">Edit Display Name</span>
             </button>
 
             {/* Theme toggle */}

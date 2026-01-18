@@ -88,6 +88,8 @@ This frontend works with a separate FastAPI backend running on http://localhost:
 The frontend communicates with the backend via `lib/api/client.ts`, which handles:
 - Authentication via Bearer token (from Supabase session)
 - Profile endpoints (`GET /api/v1/profile`, `PATCH /api/v1/profile`)
+- Request timeout (30 seconds default, configurable via `timeoutMs`)
+- Request cancellation via AbortController support
 
 ## Learn More
 

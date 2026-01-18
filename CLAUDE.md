@@ -47,16 +47,20 @@ A separate FastAPI backend exists (documented in `backend-readme.md`). Backend r
 
 **API Client** (`lib/api/client.ts`): Creates authenticated requests to the backend using the Supabase session access token. Use `createApiClient({ accessToken })` to get a client with `get()` and `patch()` methods.
 
+- Supports configurable timeout via `timeoutMs` option (default: 30 seconds)
+- Supports request cancellation via optional `signal` parameter on `get()` and `patch()`
+- Example: `client.get('/path', { signal: controller.signal })`
+
 ### Profile Management
 
 Profile state is managed through `ProfileContext` (`contexts/ProfileContext.tsx`) which provides:
 - `useProfile()` hook for accessing profile state
 - `profile`: User's profile data (id, display_name, avatar_url)
 - `isLoading`, `error`: Loading and error states
-- `updateDisplayName(name)`: Update the user's display name
+- `updateDisplayName(name)`: Update the user's display name (validates non-empty, max 50 chars)
 - `refreshProfile()`: Refetch profile from backend
 
-The profile is automatically fetched when a user session exists.
+The profile is automatically fetched when a user session exists. The context uses AbortController to prevent race conditions between concurrent fetches and updates.
 
 ### Theming
 

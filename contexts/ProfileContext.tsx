@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createApiClient } from '@/lib/api/client'
 import type { Profile } from '@/types/profile'
@@ -20,19 +20,33 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const fetchControllerRef = useRef<AbortController | null>(null)
 
   const fetchProfile = useCallback(async () => {
+    // Cancel any in-flight fetch request
+    fetchControllerRef.current?.abort()
+
     if (!session?.access_token) {
       setProfile(null)
       setIsLoading(false)
       return
     }
 
+    const controller = new AbortController()
+    fetchControllerRef.current = controller
+
     setIsLoading(true)
     setError(null)
 
     const client = createApiClient({ accessToken: session.access_token })
-    const { data, error: fetchError } = await client.get<Profile>('/api/v1/profile')
+    const { data, error: fetchError } = await client.get<Profile>('/api/v1/profile', {
+      signal: controller.signal,
+    })
+
+    // Ignore if this request was aborted
+    if (controller.signal.aborted) {
+      return
+    }
 
     if (fetchError) {
       setError(fetchError)
@@ -51,6 +65,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!session?.access_token) {
       return { error: new Error('Not authenticated') }
     }
+
+    // Cancel any in-flight fetch to prevent it from overwriting our update
+    fetchControllerRef.current?.abort()
+    fetchControllerRef.current = null
 
     const client = createApiClient({ accessToken: session.access_token })
     const { data, error: updateError } = await client.patch<Profile>('/api/v1/profile', {

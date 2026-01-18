@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useProfile } from '@/contexts/ProfileContext'
 
+const MAX_DISPLAY_NAME_LENGTH = 50
+
 interface EditProfileModalProps {
   isOpen: boolean
   onClose: () => void
@@ -37,10 +39,22 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
   }, [isOpen, onClose])
 
   const handleSave = async () => {
+    const trimmedName = displayName.trim()
+
+    if (!trimmedName) {
+      setError('Display name cannot be empty')
+      return
+    }
+
+    if (trimmedName.length > MAX_DISPLAY_NAME_LENGTH) {
+      setError(`Display name cannot exceed ${MAX_DISPLAY_NAME_LENGTH} characters`)
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
-    const { error: updateError } = await updateDisplayName(displayName.trim())
+    const { error: updateError } = await updateDisplayName(trimmedName)
 
     if (updateError) {
       setError(updateError.message)
@@ -65,8 +79,16 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 shadow-xl">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-profile-title"
+        className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 shadow-xl"
+      >
+        <h2
+          id="edit-profile-title"
+          className="text-xl font-bold text-gray-900 dark:text-white mb-4"
+        >
           Edit Profile
         </h2>
 
@@ -83,10 +105,19 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !isLoading) {
+                handleSave()
+              }
+            }}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
             placeholder="Enter your display name"
+            maxLength={MAX_DISPLAY_NAME_LENGTH}
             disabled={isLoading}
           />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 text-right">
+            {displayName.length}/{MAX_DISPLAY_NAME_LENGTH}
+          </p>
         </div>
 
         {error && (

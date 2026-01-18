@@ -8,7 +8,7 @@ import Link from 'next/link'
 
 export default function LobbyPage() {
   const { user, isLoading } = useAuth()
-  const { profile } = useProfile()
+  const { profile, isLoading: isProfileLoading } = useProfile()
 
   if (isLoading) {
     return (
@@ -54,7 +54,14 @@ export default function LobbyPage() {
         {/* Welcome message */}
         <div className="mb-8">
           <p className="text-gray-600 dark:text-gray-400">
-            Welcome back, <span className="text-gray-900 dark:text-white font-medium">{profile?.display_name || user?.email}</span>
+            Welcome back,{' '}
+            {isProfileLoading ? (
+              <span className="inline-block w-32 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" />
+            ) : (
+              <span className="text-gray-900 dark:text-white font-medium">
+                {profile?.display_name || user?.email}
+              </span>
+            )}
           </p>
         </div>
 
