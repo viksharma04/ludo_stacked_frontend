@@ -22,6 +22,7 @@ Edit `.env.local` with your Supabase project values (from https://app.supabase.c
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ### Install Dependencies
@@ -43,21 +44,27 @@ Visit http://localhost:3000
 ```
 app/
 ├── (auth)/              # Public auth pages (signin, signup)
-├── (protected)/         # Authenticated routes (dashboard)
+├── (protected)/         # Authenticated routes (lobby)
 ├── api/auth/            # API routes for auth
 ├── auth/callback/       # OAuth callback handler
-├── layout.tsx           # Root layout with AuthProvider
+├── layout.tsx           # Root layout with providers
 └── page.tsx             # Landing page
 components/
-└── auth/                # Auth-related components
+├── auth/                # Auth-related components
+└── lobby/               # Lobby components (ProfileDropdown, LobbyActions, EditProfileModal)
 contexts/
-└── AuthContext.tsx      # Authentication state management
+├── AuthContext.tsx      # Authentication state management
+├── ProfileContext.tsx   # User profile state management
+└── ThemeContext.tsx     # Theme state management
 lib/
+├── api/
+│   └── client.ts        # Backend API client
 └── supabase/
     ├── client.ts        # Browser Supabase client
     └── server.ts        # Server Supabase client
 types/
-└── auth.ts              # Auth type definitions
+├── auth.ts              # Auth type definitions
+└── profile.ts           # Profile type definitions
 ```
 
 ## Authentication
@@ -76,7 +83,13 @@ Configure these URLs in Google Cloud Console:
 
 ## Backend
 
-This frontend works with a separate FastAPI backend.
+This frontend works with a separate FastAPI backend running on http://localhost:8000.
+
+The frontend communicates with the backend via `lib/api/client.ts`, which handles:
+- Authentication via Bearer token (from Supabase session)
+- Profile endpoints (`GET /api/v1/profile`, `PATCH /api/v1/profile`)
+- Request timeout (30 seconds default, configurable via `timeoutMs`)
+- Request cancellation via AbortController support
 
 ## Learn More
 
