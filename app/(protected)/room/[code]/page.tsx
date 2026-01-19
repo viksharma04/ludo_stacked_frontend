@@ -99,6 +99,12 @@ export default function RoomPage() {
                   />
                 </svg>
               </button>
+              <span
+                className="sr-only"
+                aria-live="polite"
+              >
+                Room code copied to clipboard.
+              </span>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               Share this code with friends to invite them to your game
