@@ -31,6 +31,8 @@ OAuth callback handling: `app/auth/callback/route.ts` exchanges auth codes for s
 
 - `(auth)/` - Public auth pages (signin, signup) with shared layout
 - `(protected)/` - Authenticated routes; layout redirects unauthenticated users to `/signin`
+  - `/lobby` - Main lobby with create/join room actions
+  - `/room/[code]` - Room lobby page (dynamic route with room code)
 
 ### Environment Variables
 
@@ -61,6 +63,47 @@ Profile state is managed through `ProfileContext` (`contexts/ProfileContext.tsx`
 - `refreshProfile()`: Refetch profile from backend
 
 The profile is automatically fetched when a user session exists. The context uses AbortController to prevent race conditions between concurrent fetches and updates.
+
+### WebSocket Integration
+
+Real-time features use WebSocket connection managed through `WebSocketContext` (`contexts/WebSocketContext.tsx`):
+
+**WebSocket Client** (`lib/websocket/client.ts`):
+- Connects to `ws(s)://<API_URL>/api/v1/ws?token=<jwt>`
+- Heartbeat: Sends `ping` every 30 seconds
+- Auto-reconnect with exponential backoff (1s, 2s, 4s, 8s, 16s max)
+- Request/response pattern using `request_id` (UUID) for matching
+
+**WebSocketContext** provides:
+- `useWebSocket()` hook for accessing connection state
+- `status`: Connection status (`'disconnected' | 'connecting' | 'connected' | 'error'`)
+- `currentRoom`: Current room data (if in a room)
+- `createRoom(maxPlayers)`: Creates a new room, returns `Room` object
+- `disconnect()`: Manually disconnect
+
+**Message Types** (`types/websocket.ts`):
+- `MessageType` enum with all message types
+- `IncomingMessage` / `OutgoingMessage` union types
+- Individual message interfaces (e.g., `CreateRoomMessage`, `CreateRoomOkMessage`)
+
+### Room System
+
+Rooms are game sessions where players gather before starting. See `docs/rooms.md` for details.
+
+**Room type** (`types/room.ts`):
+```typescript
+interface Room {
+  room_id: string    // Internal UUID
+  code: string       // 6-character shareable code
+  seat_index: number // Player's seat (0-3)
+  is_host: boolean   // Whether player is room host
+}
+```
+
+**useCreateRoom hook** (`hooks/useCreateRoom.ts`): Wraps WebSocket context for UI integration
+- `createRoom(maxPlayers)`: Create a room
+- `isCreating`, `error`: Loading/error states
+- `isConnected`, `connectionStatus`: Connection state
 
 ### Theming
 

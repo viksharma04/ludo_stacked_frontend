@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { ProtectedProviders } from '@/components/providers/ProtectedProviders'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,5 +21,5 @@ export default async function ProtectedLayout({
     redirect('/signin')
   }
 
-  return <>{children}</>
+  return <ProtectedProviders>{children}</ProtectedProviders>
 }
