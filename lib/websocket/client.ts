@@ -2,6 +2,7 @@ import type {
   IncomingMessage,
   OutgoingMessage,
   CreateRoomErrorMessage,
+  JoinRoomErrorMessage,
 } from '@/types/websocket'
 import { MessageType } from '@/types/websocket'
 
@@ -139,7 +140,7 @@ export class WebSocketClient {
         this.pendingRequests.delete(message.request_id)
 
         if (this.isErrorMessage(message)) {
-          const errorPayload = (message as CreateRoomErrorMessage).payload
+          const errorPayload = this.getErrorPayload(message)
           const errorMsg = errorPayload?.message || 'Unknown error from server'
           console.error('[WebSocket] Error response:', message)
           pending.reject(new Error(errorMsg))
@@ -174,8 +175,19 @@ export class WebSocketClient {
   private isErrorMessage(message: IncomingMessage): boolean {
     return (
       message.type === MessageType.CREATE_ROOM_ERROR ||
+      message.type === MessageType.JOIN_ROOM_ERROR ||
       message.type === MessageType.ERROR
     )
+  }
+
+  private getErrorPayload(message: IncomingMessage): { message: string } | null {
+    if (message.type === MessageType.CREATE_ROOM_ERROR) {
+      return (message as CreateRoomErrorMessage).payload
+    }
+    if (message.type === MessageType.JOIN_ROOM_ERROR) {
+      return (message as JoinRoomErrorMessage).payload
+    }
+    return null
   }
 
   private startHeartbeat(): void {

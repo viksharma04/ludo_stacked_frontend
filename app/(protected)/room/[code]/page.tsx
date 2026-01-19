@@ -1,22 +1,43 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useWebSocket } from '@/contexts/WebSocketContext'
 
 export default function RoomPage() {
   const params = useParams()
   const router = useRouter()
-  const { currentRoom, status } = useWebSocket()
-  const roomCode = params.code as string
+  const { currentRoom, status, joinRoom } = useWebSocket()
+  const roomCode = (params.code as string).toUpperCase()
+  const [isJoining, setIsJoining] = useState(false)
+  const [joinError, setJoinError] = useState<string | null>(null)
+  const joinAttemptedRef = useRef(false)
 
+  // Auto-join room when navigating directly to URL
   useEffect(() => {
-    // If no room data in context and we're connected, redirect to lobby
-    // This handles direct navigation to the URL without creating a room
-    if (status === 'connected' && !currentRoom) {
-      router.replace('/lobby')
+    async function attemptAutoJoin() {
+      // Only attempt if we're connected, have no room, and haven't tried yet
+      if (status !== 'connected' || currentRoom || joinAttemptedRef.current) {
+        return
+      }
+
+      joinAttemptedRef.current = true
+      setIsJoining(true)
+      setJoinError(null)
+
+      try {
+        // Join the room via WebSocket using the room code directly
+        await joinRoom(roomCode)
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to join room'
+        setJoinError(errorMessage)
+      } finally {
+        setIsJoining(false)
+      }
     }
-  }, [status, currentRoom, router])
+
+    attemptAutoJoin()
+  }, [status, currentRoom, roomCode, joinRoom])
 
   // Show loading state while connecting
   if (status === 'connecting') {
@@ -39,6 +60,32 @@ export default function RoomPage() {
             Attempting to reconnect...
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // Show join error with option to go back
+  if (joinError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 dark:text-red-400 mb-4">{joinError}</div>
+          <button
+            onClick={() => router.push('/lobby')}
+            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
+          >
+            Back to Lobby
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading while joining
+  if (isJoining) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-600 dark:text-gray-400">Joining room...</div>
       </div>
     )
   }
@@ -118,43 +165,71 @@ export default function RoomPage() {
             Players
           </h2>
           <div className="space-y-3">
-            {/* Current player (placeholder) */}
-            <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                <span className="text-accent font-medium">
-                  {currentRoom.seat_index + 1}
-                </span>
-              </div>
-              <div className="flex-1">
-                <div className="font-medium text-gray-900 dark:text-white">
-                  You {currentRoom.is_host && '(Host)'}
-                </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Seat {currentRoom.seat_index + 1}
-                </div>
-              </div>
-              <div className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded">
-                Ready
-              </div>
-            </div>
+            {currentRoom.seats.map((seat) => {
+              const isCurrentPlayer = seat.seat_index === currentRoom.seat_index
+              const hasPlayer = seat.player !== null
 
-            {/* Empty slots placeholder */}
-            {(() => {
-              const totalSeats = currentRoom?.max_players ?? 4
-              const currentSeatNumber = currentRoom.seat_index + 1
-              const emptySeatNumbers = Array.from(
-                { length: totalSeats },
-                (_, idx) => idx + 1
-              ).filter((seatNumber) => seatNumber !== currentSeatNumber)
+              if (hasPlayer) {
+                return (
+                  <div
+                    key={seat.seat_index}
+                    className={`flex items-center gap-3 p-3 rounded-lg ${
+                      isCurrentPlayer
+                        ? 'bg-accent/10 border border-accent/30'
+                        : 'bg-gray-50 dark:bg-gray-700/50'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                      {seat.player?.avatar_url ? (
+                        <img
+                          src={seat.player.avatar_url}
+                          alt={seat.player.display_name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-accent font-medium">
+                          {seat.seat_index + 1}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                        {seat.player?.display_name}
+                        {isCurrentPlayer && (
+                          <span className="text-xs text-accent">(You)</span>
+                        )}
+                        {seat.is_host && (
+                          <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium rounded">
+                            Host
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Seat {seat.seat_index + 1}
+                      </div>
+                    </div>
+                    <div
+                      className={`px-2 py-1 text-xs font-medium rounded ${
+                        seat.is_ready
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      {seat.is_ready ? 'Ready' : 'Not Ready'}
+                    </div>
+                  </div>
+                )
+              }
 
-              return emptySeatNumbers.map((seatNumber) => (
+              // Empty seat
+              return (
                 <div
-                  key={seatNumber}
+                  key={seat.seat_index}
                   className="flex items-center gap-3 p-3 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg"
                 >
                   <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                     <span className="text-gray-400 dark:text-gray-500 font-medium">
-                      {seatNumber}
+                      {seat.seat_index + 1}
                     </span>
                   </div>
                   <div className="flex-1">
@@ -163,8 +238,8 @@ export default function RoomPage() {
                     </div>
                   </div>
                 </div>
-              ))
-            })()}
+              )
+            })}
           </div>
         </div>
 

@@ -2,13 +2,13 @@
 
 import { useState, useCallback } from 'react'
 import { useWebSocket } from '@/contexts/WebSocketContext'
-import type { Room } from '@/types/room'
+import type { RoomState } from '@/types/room'
 
 export function useCreateRoom() {
   const { createRoom: wsCreateRoom, status } = useWebSocket()
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [room, setRoom] = useState<Room | null>(null)
+  const [room, setRoom] = useState<RoomState | null>(null)
 
   const createRoom = useCallback(async (maxPlayers: number) => {
     console.log('[useCreateRoom] createRoom called, status:', status)

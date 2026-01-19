@@ -3,43 +3,56 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCreateRoom } from '@/hooks/useCreateRoom'
+import { useJoinRoom } from '@/hooks/useJoinRoom'
 import { CreateRoomOptionsModal } from '@/components/lobby/CreateRoomOptionsModal'
+import { JoinRoomModal } from '@/components/lobby/JoinRoomModal'
 
 export function LobbyActions() {
   const router = useRouter()
   const [toast, setToast] = useState<string | null>(null)
   const [showOptionsModal, setShowOptionsModal] = useState(false)
+  const [showJoinModal, setShowJoinModal] = useState(false)
 
   const {
     createRoom,
     isCreating,
-    error,
-    room,
-    clearError,
+    error: createError,
+    room: createdRoom,
+    clearError: clearCreateError,
     isConnected,
     connectionStatus,
   } = useCreateRoom()
 
+  const {
+    joinRoom,
+    isJoining,
+    error: joinError,
+    room: joinedRoom,
+    clearError: clearJoinError,
+  } = useJoinRoom()
+
   useEffect(() => {
-    if (error) {
-      console.log('[LobbyActions] Error received:', error)
-      setToast(error)
-      clearError()
+    if (createError) {
+      console.log('[LobbyActions] Create error received:', createError)
+      setToast(createError)
+      clearCreateError()
       setTimeout(() => setToast(null), 3000)
     }
-  }, [error, clearError])
+  }, [createError, clearCreateError])
 
   useEffect(() => {
-    if (room) {
+    if (createdRoom) {
       setShowOptionsModal(false)
-      router.push(`/room/${room.code}`)
+      router.push(`/room/${createdRoom.code}`)
     }
-  }, [room, router])
+  }, [createdRoom, router])
 
-  const showComingSoon = (action: string) => {
-    setToast(`${action} - Coming soon!`)
-    setTimeout(() => setToast(null), 2000)
-  }
+  useEffect(() => {
+    if (joinedRoom) {
+      setShowJoinModal(false)
+      router.push(`/room/${joinedRoom.code}`)
+    }
+  }, [joinedRoom, router])
 
   const handleCreateRoomClick = () => {
     console.log('[LobbyActions] Create room clicked, isConnected:', isConnected, 'status:', connectionStatus)
@@ -58,6 +71,28 @@ export function LobbyActions() {
   const handleCloseOptionsModal = () => {
     if (!isCreating) {
       setShowOptionsModal(false)
+    }
+  }
+
+  const handleJoinRoomClick = () => {
+    console.log('[LobbyActions] Join room clicked, isConnected:', isConnected, 'status:', connectionStatus)
+    if (!isConnected) {
+      setToast('Not connected to server')
+      setTimeout(() => setToast(null), 2000)
+      return
+    }
+    clearJoinError()
+    setShowJoinModal(true)
+  }
+
+  const handleJoinRoom = async (code: string) => {
+    await joinRoom(code)
+  }
+
+  const handleCloseJoinModal = () => {
+    if (!isJoining) {
+      setShowJoinModal(false)
+      clearJoinError()
     }
   }
 
@@ -123,11 +158,12 @@ export function LobbyActions() {
 
         {/* Join Room Card */}
         <button
-          onClick={() => showComingSoon('Join Room')}
-          className="p-6 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-all text-left group cursor-pointer"
+          onClick={handleJoinRoomClick}
+          disabled={isButtonDisabled}
+          className="p-6 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-all text-left group cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-700 disabled:hover:shadow-none"
         >
           <div className="flex justify-between items-start mb-4">
-            <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+            <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors group-disabled:group-hover:bg-accent/10">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -149,7 +185,7 @@ export function LobbyActions() {
               viewBox="0 0 24 24"
               strokeWidth={1.5}
               stroke="currentColor"
-              className="w-5 h-5 text-gray-400 group-hover:text-accent group-hover:translate-x-1 transition-all"
+              className="w-5 h-5 text-gray-400 group-hover:text-accent group-hover:translate-x-1 transition-all group-disabled:group-hover:text-gray-400 group-disabled:group-hover:translate-x-0"
             >
               <path
                 strokeLinecap="round"
@@ -167,12 +203,20 @@ export function LobbyActions() {
         </button>
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       <CreateRoomOptionsModal
         isOpen={showOptionsModal}
         onClose={handleCloseOptionsModal}
         onConfirm={handleConfirmCreate}
         isLoading={isCreating}
+      />
+
+      <JoinRoomModal
+        isOpen={showJoinModal}
+        onClose={handleCloseJoinModal}
+        onJoin={handleJoinRoom}
+        isLoading={isJoining}
+        error={joinError}
       />
 
       {/* Toast notification */}

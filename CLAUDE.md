@@ -78,8 +78,10 @@ Real-time features use WebSocket connection managed through `WebSocketContext` (
 - `useWebSocket()` hook for accessing connection state
 - `status`: Connection status (`'disconnected' | 'connecting' | 'connected' | 'error'`)
 - `currentRoom`: Current room data (if in a room)
-- `createRoom(maxPlayers)`: Creates a new room, returns `Room` object
+- `createRoom(maxPlayers)`: Creates a new room, returns `RoomState` object
+- `joinRoom(roomCode)`: Joins an existing room by 6-character code, returns `RoomState` object
 - `disconnect()`: Manually disconnect
+- `clearRoom()`: Clears current room state
 
 **Message Types** (`types/websocket.ts`):
 - `MessageType` enum with all message types
@@ -90,19 +92,26 @@ Real-time features use WebSocket connection managed through `WebSocketContext` (
 
 Rooms are game sessions where players gather before starting. See `docs/rooms.md` for details.
 
-**Room type** (`types/room.ts`):
+**RoomState type** (`types/room.ts`):
 ```typescript
-interface Room {
-  room_id: string    // Internal UUID
-  code: string       // 6-character shareable code
-  seat_index: number // Player's seat (0-3)
-  is_host: boolean   // Whether player is room host
+interface RoomState {
+  room_id: string       // Internal UUID
+  code: string          // 6-character shareable code
+  seat_index: number    // Player's seat (0-3)
+  is_host: boolean      // Whether player is room host
+  max_players: number   // Maximum players (2-4)
+  seats: Seat[]         // All seats with player info
 }
 ```
 
 **useCreateRoom hook** (`hooks/useCreateRoom.ts`): Wraps WebSocket context for UI integration
 - `createRoom(maxPlayers)`: Create a room
 - `isCreating`, `error`: Loading/error states
+- `isConnected`, `connectionStatus`: Connection state
+
+**useJoinRoom hook** (`hooks/useJoinRoom.ts`): Wraps WebSocket context for join room UI
+- `joinRoom(code)`: Join a room by 6-character code
+- `isJoining`, `error`: Loading/error states
 - `isConnected`, `connectionStatus`: Connection state
 
 ### Theming

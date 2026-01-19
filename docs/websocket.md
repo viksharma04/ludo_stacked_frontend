@@ -14,7 +14,7 @@ The frontend maintains a persistent WebSocket connection to the backend for real
 ├─────────────────────────────────────────────────────────────┤
 │  WebSocketContext (contexts/WebSocketContext.tsx)           │
 │  - Manages connection lifecycle                              │
-│  - Exposes status, currentRoom, createRoom()                │
+│  - Exposes status, currentRoom, createRoom(), joinRoom()    │
 ├─────────────────────────────────────────────────────────────┤
 │  WebSocketClient (lib/websocket/client.ts)                  │
 │  - Handles connection, heartbeat, reconnection              │
@@ -71,6 +71,15 @@ All messages are JSON with a `type` field. Request messages include a `request_i
     "ruleset_config": {}
   }
 }
+
+// Join Room
+{
+  "type": "join_room",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "payload": {
+    "room_code": "ABC123"
+  }
+}
 ```
 
 ### Server → Client
@@ -82,16 +91,19 @@ All messages are JSON with a `type` field. Request messages include a `request_i
 // Pong (heartbeat response)
 { "type": "pong" }
 
-// Create Room Success
+// Create Room Success (payload is room data directly)
 {
   "type": "create_room_ok",
   "request_id": "550e8400-e29b-41d4-a716-446655440000",
-  "timestamp": "2024-01-15T10:30:00Z",
   "payload": {
     "room_id": "...",
     "code": "AAVLEA",
-    "seat_index": 0,
-    "is_host": true
+    "status": "waiting",
+    "visibility": "private",
+    "ruleset_id": "classic",
+    "max_players": 4,
+    "seats": [...],
+    "version": 1
   }
 }
 
@@ -99,10 +111,43 @@ All messages are JSON with a `type` field. Request messages include a `request_i
 {
   "type": "create_room_error",
   "request_id": "550e8400-e29b-41d4-a716-446655440000",
-  "timestamp": "2024-01-15T10:30:00Z",
   "payload": {
     "error_code": "VALIDATION_ERROR",
     "message": "Invalid max_players value"
+  }
+}
+
+// Join Room Success (payload is room data directly)
+{
+  "type": "join_room_ok",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "payload": {
+    "room_id": "...",
+    "code": "ABC123",
+    "status": "waiting",
+    "visibility": "private",
+    "ruleset_id": "classic",
+    "max_players": 4,
+    "seats": [...],
+    "version": 1
+  }
+}
+
+// Join Room Error
+{
+  "type": "join_room_error",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "payload": {
+    "error_code": "ROOM_NOT_FOUND",
+    "message": "Room not found"
+  }
+}
+
+// Room Updated (broadcast to other room members when someone joins/leaves)
+{
+  "type": "room_updated",
+  "payload": {
+    "room": { ... }
   }
 }
 
@@ -118,11 +163,12 @@ All messages are JSON with a `type` field. Request messages include a `request_i
 import { useWebSocket } from '@/contexts/WebSocketContext'
 
 function MyComponent() {
-  const { status, currentRoom, createRoom } = useWebSocket()
+  const { status, currentRoom, createRoom, joinRoom } = useWebSocket()
 
   // status: 'disconnected' | 'connecting' | 'connected' | 'error'
-  // currentRoom: Room | null
-  // createRoom: (maxPlayers: number) => Promise<Room>
+  // currentRoom: RoomState | null
+  // createRoom: (maxPlayers: number) => Promise<RoomState>
+  // joinRoom: (roomCode: string) => Promise<RoomState>
 }
 ```
 
@@ -136,19 +182,37 @@ async function handleCreateRoom() {
 
   try {
     const room = await createRoom(4) // 4 players
-    // room: { room_id, code, seat_index, is_host }
+    // room: { room_id, code, seat_index, is_host, max_players, seats }
   } catch (error) {
     // Handle error
   }
 }
 ```
 
-### Using the Hook
+### Joining a Room
 
-For UI integration with loading/error states, use the `useCreateRoom` hook:
+```typescript
+const { joinRoom, status } = useWebSocket()
+
+async function handleJoinRoom(code: string) {
+  if (status !== 'connected') return
+
+  try {
+    const room = await joinRoom(code) // e.g., "ABC123"
+    // room: { room_id, code, seat_index, is_host, max_players, seats }
+  } catch (error) {
+    // Handle error (e.g., room not found)
+  }
+}
+```
+
+### Using the Hooks
+
+For UI integration with loading/error states, use the dedicated hooks:
 
 ```typescript
 import { useCreateRoom } from '@/hooks/useCreateRoom'
+import { useJoinRoom } from '@/hooks/useJoinRoom'
 
 function CreateRoomButton() {
   const { createRoom, isCreating, error, isConnected } = useCreateRoom()
@@ -162,6 +226,19 @@ function CreateRoomButton() {
     </button>
   )
 }
+
+function JoinRoomButton() {
+  const { joinRoom, isJoining, error, isConnected } = useJoinRoom()
+
+  return (
+    <button
+      onClick={() => joinRoom('ABC123')}
+      disabled={!isConnected || isJoining}
+    >
+      {isJoining ? 'Joining...' : 'Join Room'}
+    </button>
+  )
+}
 ```
 
 ## Type Definitions
@@ -172,7 +249,7 @@ See `types/websocket.ts` for complete type definitions:
 - `MessageType` - Enum of all message types
 - `IncomingMessage` - Union of all server messages
 - `OutgoingMessage` - Union of all client messages
-- Individual message interfaces (e.g., `CreateRoomMessage`, `CreateRoomOkMessage`)
+- Individual message interfaces (e.g., `CreateRoomMessage`, `JoinRoomMessage`)
 
 ## Error Handling
 
@@ -183,6 +260,14 @@ See `types/websocket.ts` for complete type definitions:
 | Server error response | Promise rejected with error message |
 | Network drop | Pending requests rejected, auto-reconnect |
 
+### Join Room Error Codes
+
+| Code | Description |
+|------|-------------|
+| `ROOM_NOT_FOUND` | Room does not exist |
+| `ROOM_FULL` | No available seats |
+| `ALREADY_IN_ROOM` | User already in another room |
+
 ## Files
 
 | File | Purpose |
@@ -190,5 +275,6 @@ See `types/websocket.ts` for complete type definitions:
 | `lib/websocket/client.ts` | WebSocket client class |
 | `contexts/WebSocketContext.tsx` | React context provider |
 | `hooks/useCreateRoom.ts` | Hook for create room UI |
+| `hooks/useJoinRoom.ts` | Hook for join room UI |
 | `types/websocket.ts` | TypeScript definitions |
 | `types/room.ts` | Room type definition |
