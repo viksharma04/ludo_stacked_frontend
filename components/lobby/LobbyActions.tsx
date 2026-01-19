@@ -23,22 +23,16 @@ export function LobbyActions() {
   useEffect(() => {
     if (error) {
       console.log('[LobbyActions] Error received:', error)
-      // Use queueMicrotask to avoid synchronous setState warning
-      queueMicrotask(() => {
-        setToast(error)
-        clearError()
-        setTimeout(() => setToast(null), 3000)
-      })
+      setToast(error)
+      clearError()
+      setTimeout(() => setToast(null), 3000)
     }
   }, [error, clearError])
 
   useEffect(() => {
     if (room) {
-      // Use queueMicrotask to avoid synchronous setState warning
-      queueMicrotask(() => {
-        setShowOptionsModal(false)
-        router.push(`/room/${room.code}`)
-      })
+      setShowOptionsModal(false)
+      router.push(`/room/${room.code}`)
     }
   }, [room, router])
 

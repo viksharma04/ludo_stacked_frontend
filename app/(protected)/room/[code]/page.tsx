@@ -170,6 +170,7 @@ export default function RoomPage() {
         </div>
 
         {/* Action Buttons */}
+        {/* TODO: Make the Leave Room button functional */}
         <div className="flex gap-4">
           <button
             onClick={() => {
