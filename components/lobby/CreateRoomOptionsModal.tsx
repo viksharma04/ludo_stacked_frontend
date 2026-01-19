@@ -21,8 +21,7 @@ export function CreateRoomOptionsModal({
 
   useEffect(() => {
     if (isOpen) {
-      // Use queueMicrotask to avoid synchronous setState warning
-      queueMicrotask(() => setMaxPlayers(4))
+      setMaxPlayers(4)
     }
   }, [isOpen])
 
