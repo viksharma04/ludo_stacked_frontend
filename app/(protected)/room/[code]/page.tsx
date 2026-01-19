@@ -139,23 +139,32 @@ export default function RoomPage() {
             </div>
 
             {/* Empty slots placeholder */}
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-3 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg"
-              >
-                <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                  <span className="text-gray-400 dark:text-gray-500 font-medium">
-                    {i + 2}
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <div className="text-gray-400 dark:text-gray-500">
-                    Waiting for player...
+            {(() => {
+              const totalSeats = currentRoom?.max_players ?? 4
+              const currentSeatNumber = currentRoom.seat_index + 1
+              const emptySeatNumbers = Array.from(
+                { length: totalSeats },
+                (_, idx) => idx + 1
+              ).filter((seatNumber) => seatNumber !== currentSeatNumber)
+
+              return emptySeatNumbers.map((seatNumber) => (
+                <div
+                  key={seatNumber}
+                  className="flex items-center gap-3 p-3 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg"
+                >
+                  <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                    <span className="text-gray-400 dark:text-gray-500 font-medium">
+                      {seatNumber}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-gray-400 dark:text-gray-500">
+                      Waiting for player...
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            })()}
           </div>
         </div>
 
