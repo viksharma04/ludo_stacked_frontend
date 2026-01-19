@@ -3,4 +3,5 @@ export interface Room {
   code: string
   seat_index: number
   is_host: boolean
+  max_players: number
 }
