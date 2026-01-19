@@ -82,6 +82,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       code: response.payload.code,
       seat_index: response.payload.seat_index,
       is_host: response.payload.is_host,
+      max_players: maxPlayers,
     }
 
     setCurrentRoom(room)
