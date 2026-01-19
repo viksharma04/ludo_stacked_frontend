@@ -115,15 +115,22 @@ export class WebSocketClient {
   }
 
   private handleOpen(): void {
-    console.log('[WebSocket] Connected')
+    console.log('[WebSocket] Connection opened, waiting for server authentication...')
     this.reconnectAttempt = 0
     this.startHeartbeat()
-    this.notifyStatus('connected')
+    // Don't notify 'connected' yet - wait for server's 'connected' message
+    // which confirms authentication is complete
   }
 
   private handleMessage(event: MessageEvent): void {
     try {
       const message = JSON.parse(event.data) as IncomingMessage
+
+      // Handle server's connected message (authentication confirmed)
+      if (message.type === MessageType.CONNECTED) {
+        console.log('[WebSocket] Authenticated, connection fully established')
+        this.notifyStatus('connected')
+      }
 
       // Handle request/response pattern
       if (message.request_id && this.pendingRequests.has(message.request_id)) {
