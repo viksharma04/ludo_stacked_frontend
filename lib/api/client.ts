@@ -67,6 +67,9 @@ export function createApiClient({ accessToken, timeoutMs = DEFAULT_TIMEOUT_MS }:
     get<T>(path: string, options?: { signal?: AbortSignal }) {
       return request<T>('GET', path, undefined, options?.signal)
     },
+    post<T>(path: string, body: unknown, options?: { signal?: AbortSignal }) {
+      return request<T>('POST', path, body, options?.signal)
+    },
     patch<T>(path: string, body: unknown, options?: { signal?: AbortSignal }) {
       return request<T>('PATCH', path, body, options?.signal)
     },

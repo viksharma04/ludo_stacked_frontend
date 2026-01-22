@@ -56,7 +56,7 @@ export function SignUpForm() {
         </p>
         <button
           onClick={() => router.push('/signin')}
-          className="text-accent hover:underline"
+          className="btn text-accent hover:underline"
         >
           Back to sign in
         </button>
@@ -118,7 +118,7 @@ export function SignUpForm() {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full py-2 px-4 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="btn w-full py-2 px-4 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isLoading ? 'Creating account...' : 'Sign Up'}
       </button>

@@ -44,18 +44,31 @@ Visit http://localhost:3000
 ```
 app/
 ├── (auth)/              # Public auth pages (signin, signup)
-├── (protected)/         # Authenticated routes (lobby)
+├── (protected)/         # Authenticated routes (lobby, room)
+│   ├── lobby/           # Lobby page
+│   └── room/[code]/     # Dynamic room page
 ├── api/auth/            # API routes for auth
 ├── auth/callback/       # OAuth callback handler
 ├── layout.tsx           # Root layout with providers
 └── page.tsx             # Landing page
 components/
 ├── auth/                # Auth-related components
-└── lobby/               # Lobby components (ProfileDropdown, LobbyActions, EditProfileModal)
+├── landing/             # Landing page components
+├── lobby/               # Lobby components (ProfileDropdown, LobbyActions, modals)
+│   ├── CreateRoomModal.tsx
+│   ├── EditProfileModal.tsx
+│   ├── JoinRoomModal.tsx
+│   ├── LobbyActions.tsx
+│   └── ProfileDropdown.tsx
+└── room/                # Room components
+    └── SeatCard.tsx     # Player seat display
 contexts/
 ├── AuthContext.tsx      # Authentication state management
 ├── ProfileContext.tsx   # User profile state management
+├── RoomContext.tsx      # Room state management
 └── ThemeContext.tsx     # Theme state management
+hooks/
+└── useRoomWebSocket.ts  # WebSocket hook for real-time room updates
 lib/
 ├── api/
 │   └── client.ts        # Backend API client
@@ -64,7 +77,11 @@ lib/
     └── server.ts        # Server Supabase client
 types/
 ├── auth.ts              # Auth type definitions
-└── profile.ts           # Profile type definitions
+├── profile.ts           # Profile type definitions
+└── room.ts              # Room and WebSocket type definitions
+specs/
+├── backend_room_logic.md          # Room endpoints documentation
+└── backend_room_logic_schemas.md  # Room schema reference
 ```
 
 ## Authentication
@@ -85,11 +102,44 @@ Configure these URLs in Google Cloud Console:
 
 This frontend works with a separate FastAPI backend running on http://localhost:8000.
 
+### REST API Communication
+
 The frontend communicates with the backend via `lib/api/client.ts`, which handles:
 - Authentication via Bearer token (from Supabase session)
 - Profile endpoints (`GET /api/v1/profile`, `PATCH /api/v1/profile`)
+- Room endpoints (`POST /api/v1/rooms`, `POST /api/v1/rooms/join`)
 - Request timeout (30 seconds default, configurable via `timeoutMs`)
 - Request cancellation via AbortController support
+
+### WebSocket Communication
+
+The frontend uses WebSockets for real-time room updates:
+- WebSocket endpoint: `ws://localhost:8000/api/v1/ws?token=<jwt>&room_code=<code>`
+- Managed by `useRoomWebSocket` hook
+- Supports automatic reconnection with exponential backoff
+- Heartbeat/keepalive via ping/pong messages
+- Real-time updates for player connections, ready states, and room status
+
+### Room Features
+
+- **Create Room**: Create a new game room for 2-4 players
+- **Join Room**: Join an existing room using a 6-character code
+- **Room Lobby**: 
+  - Real-time player status display
+  - Connection indicators for each player
+  - Host designation and controls
+  - Ready/Not Ready system
+  - Host can start game when all players are ready
+  - Room closes when host leaves
+- **Room Navigation**: Dynamic routing (`/room/[code]`)
+
+## UI Features
+
+- **Theme System**: Light/dark mode with system detection
+- **Cursor Management**: Proper cursor states for interactive elements via `.btn` class
+- **User Selection**: Text selection disabled by default, enabled for input fields
+- **Responsive Design**: Mobile-first approach with Tailwind CSS
+- **Real-time Updates**: WebSocket-powered live room state
 
 ## Learn More
 

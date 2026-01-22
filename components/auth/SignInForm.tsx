@@ -67,7 +67,7 @@ export function SignInForm() {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full py-2 px-4 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="btn w-full py-2 px-4 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isLoading ? 'Signing in...' : 'Sign In'}
       </button>
