@@ -37,7 +37,6 @@ function RoomContent() {
 
   const handleStartGame = () => {
     // Start game functionality will be implemented later
-    console.log('Start game clicked')
   }
 
   // Loading state
