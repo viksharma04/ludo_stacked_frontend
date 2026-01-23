@@ -9,6 +9,7 @@ import type {
   RoomClosedPayload,
   ErrorPayload,
 } from '@/types/room'
+import { WS_ERROR_CODES } from '@/types/room'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const WS_URL = API_URL.replace(/^http/, 'ws')
@@ -124,16 +125,25 @@ export function useRoomWebSocket({
       setIsConnecting(true)
       setConnectionError(null)
 
-      const url = `${WS_URL}/api/v1/ws?token=${encodeURIComponent(token)}&room_code=${encodeURIComponent(code)}`
+      // Connect without query parameters - authentication happens via message
+      const url = `${WS_URL}/api/v1/ws`
       const ws = new WebSocket(url)
       wsRef.current = ws
 
       ws.onopen = () => {
-        setIsConnected(true)
-        setIsConnecting(false)
-        setConnectionError(null)
-        reconnectAttemptRef.current = 0
+        // Start ping interval immediately (ping works before authentication)
         startPingInterval()
+
+        // Send authenticate message immediately after connection opens
+        ws.send(
+          JSON.stringify({
+            type: 'authenticate',
+            payload: {
+              token: accessTokenRef.current,
+              room_code: roomCodeRef.current,
+            },
+          })
+        )
       }
 
       ws.onmessage = (event) => {
@@ -141,7 +151,20 @@ export function useRoomWebSocket({
           const message: WSServerMessage = JSON.parse(event.data)
 
           switch (message.type) {
+            case 'authenticated':
+              // Authentication successful - now fully connected
+              setIsConnected(true)
+              setIsConnecting(false)
+              setConnectionError(null)
+              reconnectAttemptRef.current = 0
+              onConnectedRef.current?.(message.payload as unknown as ConnectedPayload)
+              break
             case 'connected':
+              // Deprecated: kept for backwards compatibility
+              setIsConnected(true)
+              setIsConnecting(false)
+              setConnectionError(null)
+              reconnectAttemptRef.current = 0
               onConnectedRef.current?.(message.payload as unknown as ConnectedPayload)
               break
             case 'room_updated':
@@ -151,9 +174,35 @@ export function useRoomWebSocket({
               shouldReconnectRef.current = false
               onRoomClosedRef.current?.(message.payload as unknown as RoomClosedPayload)
               break
-            case 'error':
-              onErrorRef.current?.(message.payload as unknown as ErrorPayload)
+            case 'error': {
+              const errorPayload = message.payload as unknown as ErrorPayload
+              // Handle authentication errors - don't reconnect for these
+              switch (errorPayload.error_code) {
+                case WS_ERROR_CODES.AUTH_FAILED:
+                case WS_ERROR_CODES.AUTH_EXPIRED:
+                  setConnectionError('Authentication failed')
+                  setIsConnecting(false)
+                  shouldReconnectRef.current = false
+                  break
+                case WS_ERROR_CODES.ROOM_NOT_FOUND:
+                  setConnectionError('Room not found')
+                  setIsConnecting(false)
+                  shouldReconnectRef.current = false
+                  break
+                case WS_ERROR_CODES.ROOM_ACCESS_DENIED:
+                  setConnectionError('Access denied to room')
+                  setIsConnecting(false)
+                  shouldReconnectRef.current = false
+                  break
+                case WS_ERROR_CODES.NOT_AUTHENTICATED:
+                  setConnectionError('Not authenticated')
+                  setIsConnecting(false)
+                  shouldReconnectRef.current = false
+                  break
+              }
+              onErrorRef.current?.(errorPayload)
               break
+            }
             case 'pong':
               // Keepalive response, no action needed
               break
@@ -181,6 +230,10 @@ export function useRoomWebSocket({
             break
           case 4004: // ROOM_ACCESS_DENIED
             setConnectionError('Access denied to room')
+            shouldReconnectRef.current = false
+            break
+          case 4005: // AUTH_TIMEOUT
+            setConnectionError('Authentication timeout')
             shouldReconnectRef.current = false
             break
           default:

@@ -7,13 +7,25 @@ export const WS_CLOSE_CODES = {
   AUTH_EXPIRED: 4002,
   ROOM_NOT_FOUND: 4003,
   ROOM_ACCESS_DENIED: 4004,
+  AUTH_TIMEOUT: 4005,
+} as const
+
+// WebSocket error codes (sent in error messages)
+export const WS_ERROR_CODES = {
+  AUTH_FAILED: 'AUTH_FAILED',
+  AUTH_EXPIRED: 'AUTH_EXPIRED',
+  ROOM_NOT_FOUND: 'ROOM_NOT_FOUND',
+  ROOM_ACCESS_DENIED: 'ROOM_ACCESS_DENIED',
+  NOT_AUTHENTICATED: 'NOT_AUTHENTICATED',
 } as const
 
 // Message types for WebSocket communication
 export type MessageType =
   | 'ping'
   | 'pong'
-  | 'connected'
+  | 'authenticate'
+  | 'authenticated'
+  | 'connected' // Deprecated: use 'authenticated' instead
   | 'error'
   | 'room_updated'
   | 'toggle_ready'
