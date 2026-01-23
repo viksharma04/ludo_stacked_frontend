@@ -54,6 +54,7 @@ export function RoomProvider({ children, roomCode }: RoomProviderProps) {
 
   const handleError = useCallback((payload: ErrorPayload) => {
     console.error('Room WebSocket error:', payload.error_code, payload.message)
+    toast.error(payload.message || 'An error occurred in the room connection.')
   }, [])
 
   const {
