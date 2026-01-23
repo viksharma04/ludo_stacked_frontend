@@ -66,7 +66,7 @@ export function ProfileDropdown() {
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-10 h-10 rounded-full bg-accent hover:bg-accent-hover text-white font-medium flex items-center justify-center transition-colors overflow-hidden cursor-pointer"
+          className="btn w-10 h-10 rounded-full bg-accent hover:bg-accent-hover text-white font-medium flex items-center justify-center transition-colors overflow-hidden"
           aria-label="Profile menu"
           aria-expanded={isOpen}
         >
@@ -100,7 +100,7 @@ export function ProfileDropdown() {
             {/* Edit Profile */}
             <button
               onClick={handleEditProfile}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="btn w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -122,7 +122,7 @@ export function ProfileDropdown() {
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="btn w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               {theme === 'light' ? (
                 <svg
@@ -163,7 +163,7 @@ export function ProfileDropdown() {
             {/* Sign out */}
             <button
               onClick={handleSignOut}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-200 dark:border-gray-700"
+              className="btn w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-200 dark:border-gray-700"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

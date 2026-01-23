@@ -28,6 +28,40 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-roboto-mono), ui-monospace, monospace;
+  cursor: default;
+}
+
+@layer base {
+  button {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  input,
+  textarea {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    cursor: text;
+  }
+}
+
+@layer components {
+  .btn {
+    cursor: pointer;
+  }
+
+  .btn:disabled {
+    cursor: not-allowed;
+  }
 }
 
 @keyframes fade-in {

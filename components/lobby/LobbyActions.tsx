@@ -1,22 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import { CreateRoomModal } from './CreateRoomModal'
+import { JoinRoomModal } from './JoinRoomModal'
 
 export function LobbyActions() {
-  const [toast, setToast] = useState<string | null>(null)
-
-  const showComingSoon = (action: string) => {
-    setToast(`${action} - Coming soon!`)
-    setTimeout(() => setToast(null), 2000)
-  }
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false)
 
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Create Room Card */}
         <button
-          onClick={() => showComingSoon('Create Room')}
-          className="p-6 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-all text-left group cursor-pointer"
+          onClick={() => setIsCreateModalOpen(true)}
+          className="btn p-6 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-all text-left group"
         >
           <div className="flex justify-between items-start mb-4">
             <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
@@ -60,8 +58,8 @@ export function LobbyActions() {
 
         {/* Join Room Card */}
         <button
-          onClick={() => showComingSoon('Join Room')}
-          className="p-6 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-all text-left group cursor-pointer"
+          onClick={() => setIsJoinModalOpen(true)}
+          className="btn p-6 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:border-accent dark:hover:border-accent hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-all text-left group"
         >
           <div className="flex justify-between items-start mb-4">
             <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
@@ -104,12 +102,14 @@ export function LobbyActions() {
         </button>
       </div>
 
-      {/* Toast notification */}
-      {toast && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg shadow-lg text-sm font-medium animate-fade-in">
-          {toast}
-        </div>
-      )}
+      <CreateRoomModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
+      <JoinRoomModal
+        isOpen={isJoinModalOpen}
+        onClose={() => setIsJoinModalOpen(false)}
+      />
     </>
   )
 }
