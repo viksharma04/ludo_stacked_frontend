@@ -296,7 +296,7 @@ export function useRoomWebSocket({
     return () => {
       disconnect()
     }
-  }, [disconnect, accessToken, roomCode])
+  }, [disconnect])
 
   return {
     isConnected,
