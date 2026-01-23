@@ -114,10 +114,14 @@ The frontend communicates with the backend via `lib/api/client.ts`, which handle
 ### WebSocket Communication
 
 The frontend uses WebSockets for real-time room updates:
-- WebSocket endpoint: `ws://localhost:8000/api/v1/ws?token=<jwt>&room_code=<code>`
+- WebSocket endpoint: `ws://localhost:8000/api/v1/ws`
+- Authentication via message after connection (not query parameters):
+  1. Connect to WebSocket endpoint
+  2. Send `authenticate` message with `token` and `room_code` in payload
+  3. Receive `authenticated` response on success or `error` on failure
 - Managed by `useRoomWebSocket` hook
 - Supports automatic reconnection with exponential backoff
-- Heartbeat/keepalive via ping/pong messages
+- Heartbeat/keepalive via ping/pong messages (works before authentication)
 - Real-time updates for player connections, ready states, and room status
 
 ### Room Features
