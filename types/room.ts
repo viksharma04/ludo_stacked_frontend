@@ -31,6 +31,14 @@ export type MessageType =
   | 'toggle_ready'
   | 'leave_room'
   | 'room_closed'
+  // Game-related messages
+  | 'start_game'
+  | 'game_started'
+  | 'game_action'
+  | 'game_events'
+  | 'game_state'
+  | 'game_error'
+  | 'request_state'
 
 // Client to server message envelope
 export interface WSClientMessage {
