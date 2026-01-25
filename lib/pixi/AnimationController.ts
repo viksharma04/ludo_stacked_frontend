@@ -1,7 +1,7 @@
 import gsap from 'gsap'
 import type { Graphics } from 'pixi.js'
 import type { PixiApp } from './PixiApp'
-import type { BoardGeometry } from '@/lib/game/boardGeometry'
+import { TRACK_LENGTH, type BoardGeometry } from '@/lib/game/boardGeometry'
 import type {
   GameEvent,
   TokenMovedEvent,
@@ -110,6 +110,14 @@ export class AnimationController {
     const player = this.getPlayerById(event.player_id)
     if (!player) return
 
+    // Calculate the starting position (before the move)
+    const startPosition = geometry.getTokenPosition(
+      player.color,
+      player.abs_starting_index,
+      event.from_state,
+      event.from_progress
+    )
+
     // Calculate the path
     const path = geometry.getMovePath(
       player.color,
@@ -120,9 +128,9 @@ export class AnimationController {
       event.to_state
     )
 
-    // Animate through the path
+    // Animate through the path (passing start position to reset sprite first)
     const durationPerSquare = this.getDuration(ANIMATION_DURATIONS.TOKEN_MOVE_PER_SQUARE)
-    await tokenRenderer.animateTokenMove(event.token_id, path, durationPerSquare)
+    await tokenRenderer.animateTokenMove(event.token_id, path, durationPerSquare, startPosition)
   }
 
   private async animateTokenExitHell(event: TokenExitedHellEvent): Promise<void> {
@@ -199,6 +207,14 @@ export class AnimationController {
     const player = this.getPlayerById(event.player_id)
     if (!player) return
 
+    // Calculate starting position for the stack
+    const startPosition = geometry.getTokenPosition(
+      player.color,
+      player.abs_starting_index,
+      'road',
+      event.from_progress
+    )
+
     // Move each token in the stack
     const path = geometry.getMovePath(
       player.color,
@@ -213,10 +229,10 @@ export class AnimationController {
 
     const durationPerSquare = this.getDuration(ANIMATION_DURATIONS.TOKEN_MOVE_PER_SQUARE)
 
-    // Animate all tokens in stack together
+    // Animate all tokens in stack together (passing start position)
     await Promise.all(
       event.token_ids.map((tokenId) =>
-        tokenRenderer.animateTokenMove(tokenId, path, durationPerSquare)
+        tokenRenderer.animateTokenMove(tokenId, path, durationPerSquare, startPosition)
       )
     )
   }

@@ -1,6 +1,6 @@
 // Animation durations in milliseconds
 export const ANIMATION_DURATIONS = {
-  DICE_ROLL: 750,
+  DICE_ROLL: 250,
   TOKEN_MOVE_PER_SQUARE: 300,
   TOKEN_CAPTURE: 500,
   STACK_FORM: 400,

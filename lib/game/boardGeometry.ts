@@ -13,74 +13,78 @@ export const PLAYER_START_POSITIONS: Record<PlayerColor, number> = {
 function createTrack(): Point[] {
   const track: Point[] = []
 
-  track.push({ x: 2, y: 8 }) // 0 - Starting position
+  track.push({ x: 2, y: 8 }) // 0 - Red's starting position
   track.push({ x: 3, y: 8 }) // 1
   track.push({ x: 4, y: 8 }) // 2
   track.push({ x: 5, y: 8 }) // 3
-  // Corner - going down
-  track.push({ x: 6, y: 9 }) // 5
-  track.push({ x: 6, y: 10 }) // 6
-  track.push({ x: 6, y: 11 }) // 7
-  track.push({ x: 6, y: 12 }) // 8
-  track.push({ x: 6, y: 13 }) // 9
-  track.push({ x: 6, y: 14 }) // 10
+  // Going down (corner at 6,8 is shared, not a separate square)
+  track.push({ x: 6, y: 9 }) // 4
+  track.push({ x: 6, y: 10 }) // 5
+  track.push({ x: 6, y: 11 }) // 6
+  track.push({ x: 6, y: 12 }) // 7
+  track.push({ x: 6, y: 13 }) // 8
+  track.push({ x: 6, y: 14 }) // 9
+  // Turn right at bottom
+  track.push({ x: 7, y: 14 }) // 10
+  track.push({ x: 8, y: 14 }) // 11
+  // Going up
+  track.push({ x: 8, y: 13 }) // 12
+  track.push({ x: 8, y: 12 }) // 13 - Blue's starting position
+  track.push({ x: 8, y: 11 }) // 14
+  track.push({ x: 8, y: 10 }) // 15
+  track.push({ x: 8, y: 9 }) // 16
   // Turn right
-  track.push({ x: 7, y: 14 }) // 11
-  track.push({ x: 8, y: 14 }) // 12
+  track.push({ x: 9, y: 8 }) // 17
+  track.push({ x: 10, y: 8 }) // 18
+  track.push({ x: 11, y: 8 }) // 19
+  track.push({ x: 12, y: 8 }) // 20
+  track.push({ x: 13, y: 8 }) // 21
+  track.push({ x: 14, y: 8 }) // 22
+  // Turn up at right edge
+  track.push({ x: 14, y: 7 }) // 23
+  track.push({ x: 14, y: 6 }) // 24
+  // Going left
+  track.push({ x: 13, y: 6 }) // 25
+  track.push({ x: 12, y: 6 }) // 26 - Green's starting position
+  track.push({ x: 11, y: 6 }) // 27
+  track.push({ x: 10, y: 6 }) // 28
+  track.push({ x: 9, y: 6 }) // 29
   // Turn up
-  track.push({ x: 8, y: 13 }) // 13
-  track.push({ x: 8, y: 12 }) // 14
-  track.push({ x: 8, y: 11 }) // 15
-  track.push({ x: 8, y: 10 }) // 16
-  track.push({ x: 8, y: 9 }) // 17
-  // Turn right
-  track.push({ x: 9, y: 8 }) // 18
-  track.push({ x: 10, y: 8 }) // 19
-  track.push({ x: 11, y: 8 }) // 20
-  track.push({ x: 12, y: 8 }) // 21
-  track.push({ x: 13, y: 8 }) // 22
-  track.push({ x: 14, y: 8 }) // 23
-  // Turn up
-  track.push({ x: 14, y: 7 }) // 24
-  track.push({ x: 14, y: 6 }) // 25
-  // Continue left
-  track.push({ x: 13, y: 6 }) // 26
-  track.push({ x: 12, y: 6 }) // 27
-  track.push({ x: 11, y: 6 }) // 28
-  track.push({ x: 10, y: 6 }) // 29
-  track.push({ x: 9, y: 6 }) // 30
-  // Turn up
-  track.push({ x: 8, y: 5 }) // 31
-  track.push({ x: 8, y: 4 }) // 32
-  track.push({ x: 8, y: 3 }) // 33
-  track.push({ x: 8, y: 2 }) // 34
-  track.push({ x: 8, y: 1 }) // 35
-  track.push({ x: 8, y: 0 }) // 36
+  track.push({ x: 8, y: 5 }) // 30
+  track.push({ x: 8, y: 4 }) // 31
+  track.push({ x: 8, y: 3 }) // 32
+  track.push({ x: 8, y: 2 }) // 33
+  track.push({ x: 8, y: 1 }) // 34
+  track.push({ x: 8, y: 0 }) // 35
+  // Turn left at top
+  track.push({ x: 7, y: 0 }) // 36
+  track.push({ x: 6, y: 0 }) // 37
+  // Going down
+  track.push({ x: 6, y: 1 }) // 38
+  track.push({ x: 6, y: 2 }) // 39 - Yellow's starting position
+  track.push({ x: 6, y: 3 }) // 40
+  track.push({ x: 6, y: 4 }) // 41
+  track.push({ x: 6, y: 5 }) // 42
   // Turn left
-  track.push({ x: 7, y: 0 }) // 37
-  track.push({ x: 6, y: 0 }) // 38
-  // Continue down
-  track.push({ x: 6, y: 1 }) // 39
-  track.push({ x: 6, y: 2 }) // 40
-  track.push({ x: 6, y: 3 }) // 41
-  track.push({ x: 6, y: 4 }) // 42
-  track.push({ x: 6, y: 5 }) // 43
-  // Turn left
-  track.push({ x: 5, y: 6 }) // 44
-  track.push({ x: 4, y: 6 }) // 45
-  track.push({ x: 3, y: 6 }) // 46
-  track.push({ x: 2, y: 6 }) // 47
-  track.push({ x: 1, y: 6 }) // 48
-  track.push({ x: 0, y: 6 }) // 49
-  // Turn down
-  track.push({ x: 0, y: 7 }) // 50
-  track.push({ x: 0, y: 8 }) // 51
-  track.push({ x: 1, y: 8 }) // 52
+  track.push({ x: 5, y: 6 }) // 43
+  track.push({ x: 4, y: 6 }) // 44
+  track.push({ x: 3, y: 6 }) // 45
+  track.push({ x: 2, y: 6 }) // 46
+  track.push({ x: 1, y: 6 }) // 47
+  track.push({ x: 0, y: 6 }) // 48
+  // Turn down at left edge
+  track.push({ x: 0, y: 7 }) // 49
+  track.push({ x: 0, y: 8 }) // 50
+  track.push({ x: 1, y: 8 }) // 51
 
   return track
 }
 
 const MAIN_TRACK = createTrack()
+
+// The number of squares on the main track before entering homestretch
+// This should match the backend's squares_to_homestretch value
+export const TRACK_LENGTH = MAIN_TRACK.length
 
 // Homestretch positions for each player (6 squares leading to center)
 const HOMESTRETCH_POSITIONS: Record<PlayerColor, Point[]> = {
@@ -243,10 +247,15 @@ export class BoardGeometry {
   // Get safe space positions
   getSafeSpacePositions(): Point[] {
     if (!this.boardSetup) return []
-    return this.boardSetup.safe_spaces.map((absPos) => {
-      const gridPos = MAIN_TRACK[absPos % MAIN_TRACK.length]
-      return this.gridToPixel(gridPos.x, gridPos.y)
-    })
+    return this.boardSetup.safe_spaces
+      .filter((absPos) => typeof absPos === 'number' && !isNaN(absPos))
+      .map((absPos) => {
+        const index = absPos % MAIN_TRACK.length
+        const gridPos = MAIN_TRACK[index]
+        if (!gridPos) return null
+        return this.gridToPixel(gridPos.x, gridPos.y)
+      })
+      .filter((pos): pos is Point => pos !== null)
   }
 
   // Get starting positions grid indices
@@ -281,9 +290,10 @@ export class BoardGeometry {
 
       case 'homestretch': {
         // Token is on the homestretch
-        // Progress in homestretch is relative to entering (typically after squares_to_homestretch)
+        // Progress in homestretch is relative to entering (progress > squares_to_homestretch)
+        // Progress 50 = homestretch position 0, progress 51 = position 1, etc.
         const homestretchProgress = this.boardSetup
-          ? progress - this.boardSetup.squares_to_homestretch
+          ? progress - this.boardSetup.squares_to_homestretch - 1
           : progress
         const homestretchPos = HOMESTRETCH_POSITIONS[playerColor]
         const posIndex = Math.min(
@@ -311,10 +321,11 @@ export class BoardGeometry {
    */
   getAbsolutePosition(playerStartingIndex: number, progress: number): number {
     if (!this.boardSetup) return 0
-    if (progress >= this.boardSetup.squares_to_homestretch) {
+    // Progress > squares_to_homestretch means in homestretch (progress 50+ for squares_to_homestretch=49)
+    if (progress > this.boardSetup.squares_to_homestretch) {
       return -1 // In homestretch, not on main track
     }
-    return (playerStartingIndex + progress) % this.boardSetup.squares_to_homestretch
+    return (playerStartingIndex + progress) % MAIN_TRACK.length
   }
 
   /**
@@ -356,7 +367,7 @@ export class BoardGeometry {
     // Regular move on track or homestretch
     for (let p = fromProgress + 1; p <= toProgress; p++) {
       const state: TokenState =
-        this.boardSetup && p >= this.boardSetup.squares_to_homestretch
+        this.boardSetup && p > this.boardSetup.squares_to_homestretch
           ? 'homestretch'
           : 'road'
       path.push(

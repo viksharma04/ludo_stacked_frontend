@@ -67,27 +67,40 @@ export class PixiApp {
 
     // Recreate geometry with new dimensions
     this.geometry = createBoardGeometry(width, height, 20)
+    const state = useGameStore.getState()
+
+    // Re-apply board setup to new geometry (needed for safe spaces)
+    if (state.boardSetup) {
+      this.geometry.setBoardSetup(state.boardSetup)
+    }
 
     // Update renderers with new geometry
     if (this.boardRenderer) {
       this.boardRenderer.setGeometry(this.geometry)
       this.boardRenderer.render()
+      // Redraw starting markers if players are loaded
+      if (state.players.length > 0) {
+        this.boardRenderer.updateStartingMarkers(state.players)
+      }
     }
 
     if (this.tokenRenderer) {
       this.tokenRenderer.setGeometry(this.geometry)
-      const state = useGameStore.getState()
       this.tokenRenderer.updateTokens(state.players)
     }
   }
 
   private setupStoreSubscriptions(): void {
-    // Subscribe to players changes to update tokens
+    // Subscribe to players changes to update tokens and starting markers
     const unsubPlayers = useGameStore.subscribe(
       (state) => state.players,
       (players) => {
         if (this.tokenRenderer) {
           this.tokenRenderer.updateTokens(players)
+        }
+        // Update starting position markers to use actual player abs_starting_index
+        if (this.boardRenderer && players.length > 0) {
+          this.boardRenderer.updateStartingMarkers(players)
         }
       }
     )
@@ -103,7 +116,8 @@ export class PixiApp {
             this.boardRenderer.render()
           }
         }
-      }
+      },
+      { fireImmediately: true }
     )
     this.unsubscribers.push(unsubBoardSetup)
 
@@ -138,6 +152,10 @@ export class PixiApp {
 
     this.geometry.setBoardSetup(boardSetup)
     this.boardRenderer.render()
+    // Update starting markers using actual player positions from backend
+    if (players.length > 0) {
+      this.boardRenderer.updateStartingMarkers(players)
+    }
     this.tokenRenderer.updateTokens(players)
   }
 

@@ -2,30 +2,56 @@ import {
   Application,
   Container,
   Graphics,
-  FederatedPointerEvent,
+  Text,
+  TextStyle,
 } from 'pixi.js'
 import { BoardGeometry } from '@/lib/game/boardGeometry'
 import { TOKEN_VISUAL, Z_LAYERS } from '@/lib/game/constants'
-import { PLAYER_COLORS, type Player, type Token, type PlayerColor } from '@/types/game'
+import { PLAYER_COLORS, type Player, type Token, type PlayerColor, type ParsedLegalMove } from '@/types/game'
 
 interface TokenSprite {
   tokenId: string
   playerId: string
   playerColor: PlayerColor
   graphics: Graphics
+  stackBadge: Container
   isHighlighted: boolean
   isSelected: boolean
+}
+
+interface SplitOption {
+  graphics: Graphics
+  rawId: string
 }
 
 export class TokenRenderer {
   private app: Application
   private geometry: BoardGeometry
   private container: Container
+  private splitOptionsContainer: Container
   private tokens: Map<string, TokenSprite> = new Map()
+  private splitOptions: SplitOption[] = []
   private highlightedTokenIds: Set<string> = new Set()
+  private animatingTokenIds: Set<string> = new Set()
   private selectedTokenId: string | null = null
   private clickHandler: ((tokenId: string) => void) | null = null
+  private splitOptionSelectHandler: ((rawId: string) => void) | null = null
   private pulseTime = 0
+
+  /**
+   * Deterministically select lead token from a stack.
+   * Uses lowest token number to ensure all clients agree.
+   */
+  private getLeadTokenId(tokens: string[]): string | null {
+    if (tokens.length === 0) return null
+
+    // Sort tokens by their numeric suffix (e.g., token_1 < token_2)
+    return tokens.slice().sort((a, b) => {
+      const numA = parseInt(a.split('_').pop() || '0', 10)
+      const numB = parseInt(b.split('_').pop() || '0', 10)
+      return numA - numB
+    })[0]
+  }
 
   constructor(app: Application, geometry: BoardGeometry) {
     this.app = app
@@ -36,6 +62,11 @@ export class TokenRenderer {
     this.container.zIndex = Z_LAYERS.TOKENS_BASE
     this.container.sortableChildren = true
     this.app.stage.addChild(this.container)
+
+    // Create container for split options overlay
+    this.splitOptionsContainer = new Container()
+    this.splitOptionsContainer.zIndex = Z_LAYERS.UI_OVERLAY
+    this.app.stage.addChild(this.splitOptionsContainer)
 
     // Start animation loop for pulse effect
     this.app.ticker.add(this.animate.bind(this))
@@ -62,6 +93,18 @@ export class TokenRenderer {
   updateTokens(players: Player[]): void {
     const currentTokenIds = new Set<string>()
 
+    // Build a map of lead token IDs to stack size
+    // Lead token is deterministically selected (lowest token number) to ensure all clients agree
+    const leadTokenStackSize = new Map<string, number>()
+    players.forEach((player) => {
+      player.stacks?.forEach((stack) => {
+        const leadToken = this.getLeadTokenId(stack.tokens)
+        if (leadToken) {
+          leadTokenStackSize.set(leadToken, stack.tokens.length)
+        }
+      })
+    })
+
     players.forEach((player) => {
       const tokenIndex: Record<string, number> = {}
 
@@ -85,21 +128,36 @@ export class TokenRenderer {
           this.container.addChild(sprite.graphics)
         }
 
-        // Update position
-        const position = this.geometry.getTokenPosition(
-          player.color,
-          player.abs_starting_index,
-          token.state,
-          token.progress,
-          idx
-        )
+        // Update position (skip if token is being animated)
+        if (!this.animatingTokenIds.has(token.token_id)) {
+          const position = this.geometry.getTokenPosition(
+            player.color,
+            player.abs_starting_index,
+            token.state,
+            token.progress,
+            idx
+          )
 
-        sprite.graphics.x = position.x
-        sprite.graphics.y = position.y
+          sprite.graphics.x = position.x
+          sprite.graphics.y = position.y
+        }
 
         // Update visibility based on stack state
-        // Tokens in stacks should only show the top one
-        sprite.graphics.visible = !token.in_stack
+        // Show token if it's not in a stack, OR if it's the lead token of a stack
+        const stackSize = leadTokenStackSize.get(token.token_id)
+        const isLeadToken = stackSize !== undefined
+        sprite.graphics.visible = !token.in_stack || isLeadToken
+
+        // Update stack badge
+        if (isLeadToken && stackSize > 1) {
+          this.updateStackBadge(sprite, stackSize)
+          sprite.stackBadge.visible = true
+        } else {
+          sprite.stackBadge.visible = false
+          // Clear text to prevent stale content if re-render timing is off
+          const text = sprite.stackBadge.getChildByName('badgeText') as Text
+          if (text) text.text = ''
+        }
 
         tokenIndex[stateKey]++
       })
@@ -128,11 +186,16 @@ export class TokenRenderer {
     // Draw token
     this.drawToken(graphics, radius, colorConfig.primary, colorConfig.secondary)
 
+    // Create stack badge container (positioned at top-right of token)
+    const stackBadge = this.createStackBadge(radius)
+    stackBadge.visible = false
+    graphics.addChild(stackBadge)
+
     // Make interactive
     graphics.eventMode = 'static'
     graphics.cursor = 'pointer'
 
-    graphics.on('pointerdown', (event: FederatedPointerEvent) => {
+    graphics.on('pointerdown', () => {
       if (this.clickHandler && this.highlightedTokenIds.has(token.token_id)) {
         this.clickHandler(token.token_id)
       }
@@ -143,8 +206,46 @@ export class TokenRenderer {
       playerId,
       playerColor,
       graphics,
+      stackBadge,
       isHighlighted: false,
       isSelected: false,
+    }
+  }
+
+  private createStackBadge(tokenRadius: number): Container {
+    const badge = new Container()
+    const badgeRadius = tokenRadius * 0.45
+
+    // Position at top-right corner of token
+    badge.position.set(tokenRadius * 0.6, -tokenRadius * 0.6)
+
+    // Background circle
+    const bg = new Graphics()
+    bg.circle(0, 0, badgeRadius)
+    bg.fill({ color: 0x000000, alpha: 0.8 })
+    bg.circle(0, 0, badgeRadius)
+    bg.stroke({ color: 0xffffff, width: 1.5 })
+    badge.addChild(bg)
+
+    // Text (will be updated later)
+    const style = new TextStyle({
+      fontFamily: 'monospace',
+      fontSize: badgeRadius * 1.4,
+      fill: 0xffffff,
+      fontWeight: 'bold',
+    })
+    const text = new Text({ text: '2', style })
+    text.anchor.set(0.5, 0.5)
+    text.name = 'badgeText'
+    badge.addChild(text)
+
+    return badge
+  }
+
+  private updateStackBadge(sprite: TokenSprite, count: number): void {
+    const text = sprite.stackBadge.getChildByName('badgeText') as Text
+    if (text) {
+      text.text = String(count)
     }
   }
 
@@ -240,20 +341,34 @@ export class TokenRenderer {
   async animateTokenMove(
     tokenId: string,
     path: { x: number; y: number }[],
-    durationPerSquare: number
+    durationPerSquare: number,
+    startPosition?: { x: number; y: number }
   ): Promise<void> {
     const sprite = this.tokens.get(tokenId)
     if (!sprite || path.length === 0) return
 
+    // Mark token as animating to prevent updateTokens from overriding position
+    this.animatingTokenIds.add(tokenId)
+
+    // Reset sprite to starting position before animating
+    // This fixes the "flash to end position" issue when state updates before animation
+    if (startPosition) {
+      sprite.graphics.x = startPosition.x
+      sprite.graphics.y = startPosition.y
+    }
+
     // Move sprite to higher z-index during animation
     sprite.graphics.zIndex = Z_LAYERS.TOKENS_MOVING
 
-    for (const point of path) {
-      await this.animateToPosition(sprite.graphics, point.x, point.y, durationPerSquare)
+    try {
+      for (const point of path) {
+        await this.animateToPosition(sprite.graphics, point.x, point.y, durationPerSquare)
+      }
+    } finally {
+      // Reset z-index and remove from animating set
+      sprite.graphics.zIndex = Z_LAYERS.TOKENS_BASE
+      this.animatingTokenIds.delete(tokenId)
     }
-
-    // Reset z-index
-    sprite.graphics.zIndex = Z_LAYERS.TOKENS_BASE
   }
 
   private animateToPosition(
@@ -295,14 +410,21 @@ export class TokenRenderer {
     const sprite = this.tokens.get(tokenId)
     if (!sprite) return
 
-    // Start from small scale
-    sprite.graphics.scale.set(0.1)
-    sprite.graphics.x = targetPosition.x
-    sprite.graphics.y = targetPosition.y
-    sprite.graphics.visible = true
+    // Mark token as animating
+    this.animatingTokenIds.add(tokenId)
 
-    // Animate scale up with bounce
-    await this.animateScale(sprite.graphics, 1, 500)
+    try {
+      // Start from small scale
+      sprite.graphics.scale.set(0.1)
+      sprite.graphics.x = targetPosition.x
+      sprite.graphics.y = targetPosition.y
+      sprite.graphics.visible = true
+
+      // Animate scale up with bounce
+      await this.animateScale(sprite.graphics, 1, 500)
+    } finally {
+      this.animatingTokenIds.delete(tokenId)
+    }
   }
 
   // Animate token reaching heaven
@@ -310,14 +432,21 @@ export class TokenRenderer {
     const sprite = this.tokens.get(tokenId)
     if (!sprite) return
 
-    // Animate scale up then fade out
-    await this.animateScale(sprite.graphics, 1.5, 400)
-    await this.animateFade(sprite.graphics, 0, 400)
+    // Mark token as animating
+    this.animatingTokenIds.add(tokenId)
 
-    // Hide the token
-    sprite.graphics.visible = false
-    sprite.graphics.alpha = 1
-    sprite.graphics.scale.set(1)
+    try {
+      // Animate scale up then fade out
+      await this.animateScale(sprite.graphics, 1.5, 400)
+      await this.animateFade(sprite.graphics, 0, 400)
+
+      // Hide the token
+      sprite.graphics.visible = false
+      sprite.graphics.alpha = 1
+      sprite.graphics.scale.set(1)
+    } finally {
+      this.animatingTokenIds.delete(tokenId)
+    }
   }
 
   // Animate capture effect
@@ -329,16 +458,23 @@ export class TokenRenderer {
     const capturedSprite = this.tokens.get(capturedTokenId)
     if (!capturedSprite) return
 
-    // Flash effect on captured token
-    await this.animateFlash(capturedSprite.graphics)
+    // Mark captured token as animating
+    this.animatingTokenIds.add(capturedTokenId)
 
-    // Animate back to hell
-    await this.animateToPosition(
-      capturedSprite.graphics,
-      capturedReturnPos.x,
-      capturedReturnPos.y,
-      300
-    )
+    try {
+      // Flash effect on captured token
+      await this.animateFlash(capturedSprite.graphics)
+
+      // Animate back to hell
+      await this.animateToPosition(
+        capturedSprite.graphics,
+        capturedReturnPos.x,
+        capturedReturnPos.y,
+        300
+      )
+    } finally {
+      this.animatingTokenIds.delete(capturedTokenId)
+    }
   }
 
   private animateScale(graphics: Graphics, targetScale: number, duration: number): Promise<void> {
@@ -420,6 +556,142 @@ export class TokenRenderer {
     return this.tokens.get(tokenId)?.graphics ?? null
   }
 
+  /**
+   * Show stack split options overlay above a stack position
+   * @param options - Array of parsed legal moves for this stack
+   * @param position - Screen position to show the options
+   * @param stackHeight - Total number of tokens in the stack
+   * @param playerColor - Color of the player who owns the stack
+   * @param onSelect - Callback when an option is selected
+   */
+  showStackSplitOptions(
+    options: ParsedLegalMove[],
+    position: { x: number; y: number },
+    stackHeight: number,
+    playerColor: PlayerColor,
+    onSelect: (rawId: string) => void
+  ): void {
+    // Clear any existing split options
+    this.clearSplitOptions()
+
+    this.splitOptionSelectHandler = onSelect
+    const colorConfig = PLAYER_COLORS[playerColor]
+    const cellSize = this.geometry.getCellSize()
+    const miniRadius = cellSize * 0.2
+    const optionSpacing = cellSize * 1.2
+    const totalWidth = (options.length - 1) * optionSpacing
+
+    // Sort options by stack split count
+    const sortedOptions = [...options].sort(
+      (a, b) => (a.stackSplitCount ?? 0) - (b.stackSplitCount ?? 0)
+    )
+
+    // Create backdrop for the split options
+    const backdrop = new Graphics()
+    const backdropPadding = cellSize * 0.4
+    const backdropWidth = totalWidth + cellSize * 1.5
+    const backdropHeight = cellSize * 1.8
+    backdrop.roundRect(
+      position.x - backdropWidth / 2,
+      position.y - cellSize * 2.5 - backdropPadding,
+      backdropWidth,
+      backdropHeight,
+      8
+    )
+    backdrop.fill({ color: 0x000000, alpha: 0.8 })
+    backdrop.stroke({ color: 0xffffff, width: 2, alpha: 0.5 })
+    this.splitOptionsContainer.addChild(backdrop)
+
+    // Create label
+    const labelStyle = new TextStyle({
+      fontFamily: 'monospace',
+      fontSize: Math.max(10, cellSize * 0.25),
+      fill: 0xffffff,
+      fontWeight: 'bold',
+    })
+    const label = new Text({ text: 'Move how many?', style: labelStyle })
+    label.anchor.set(0.5, 0.5)
+    label.position.set(position.x, position.y - cellSize * 2.8)
+    this.splitOptionsContainer.addChild(label)
+
+    sortedOptions.forEach((option, index) => {
+      const count = option.stackSplitCount ?? stackHeight
+      const xPos = position.x - totalWidth / 2 + index * optionSpacing
+
+      // Create option graphics
+      const optionGraphics = new Graphics()
+      optionGraphics.position.set(xPos, position.y - cellSize * 1.8)
+
+      // Draw mini-stack visualization
+      for (let i = 0; i < count; i++) {
+        const yOffset = -i * (miniRadius * 0.5)
+        // Shadow
+        optionGraphics.circle(1, yOffset + 1, miniRadius)
+        optionGraphics.fill({ color: 0x000000, alpha: 0.3 })
+        // Token
+        optionGraphics.circle(0, yOffset, miniRadius)
+        optionGraphics.fill({ color: colorConfig.primary })
+        optionGraphics.circle(0, yOffset, miniRadius)
+        optionGraphics.stroke({ color: colorConfig.secondary, width: 1.5 })
+      }
+
+      // Draw count label below
+      const countStyle = new TextStyle({
+        fontFamily: 'monospace',
+        fontSize: Math.max(12, cellSize * 0.35),
+        fill: 0xffffff,
+        fontWeight: 'bold',
+      })
+      const countLabel = new Text({ text: String(count), style: countStyle })
+      countLabel.anchor.set(0.5, 0)
+      countLabel.position.set(0, miniRadius * 0.8)
+      optionGraphics.addChild(countLabel)
+
+      // Make interactive
+      optionGraphics.eventMode = 'static'
+      optionGraphics.cursor = 'pointer'
+      optionGraphics.hitArea = {
+        contains: (x: number, y: number) => {
+          return Math.abs(x) < cellSize * 0.6 && Math.abs(y) < cellSize * 0.8
+        },
+      }
+
+      // Hover effect
+      optionGraphics.on('pointerover', () => {
+        optionGraphics.scale.set(1.1)
+      })
+      optionGraphics.on('pointerout', () => {
+        optionGraphics.scale.set(1)
+      })
+
+      // Click handler
+      optionGraphics.on('pointerdown', () => {
+        if (this.splitOptionSelectHandler) {
+          this.splitOptionSelectHandler(option.rawId)
+        }
+      })
+
+      this.splitOptionsContainer.addChild(optionGraphics)
+      this.splitOptions.push({ graphics: optionGraphics, rawId: option.rawId })
+    })
+  }
+
+  /**
+   * Clear the stack split options overlay
+   */
+  clearSplitOptions(): void {
+    this.splitOptionsContainer.removeChildren()
+    this.splitOptions = []
+    this.splitOptionSelectHandler = null
+  }
+
+  /**
+   * Check if split options are currently visible
+   */
+  hasSplitOptionsVisible(): boolean {
+    return this.splitOptions.length > 0
+  }
+
   destroy(): void {
     this.app.ticker.remove(this.animate.bind(this))
 
@@ -427,6 +699,8 @@ export class TokenRenderer {
       sprite.graphics.destroy()
     }
     this.tokens.clear()
+    this.clearSplitOptions()
+    this.splitOptionsContainer.destroy()
     this.container.destroy()
   }
 }

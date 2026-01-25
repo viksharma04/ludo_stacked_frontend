@@ -1,7 +1,7 @@
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
 import { BoardGeometry, HOME_AREA_BOUNDS } from '@/lib/game/boardGeometry'
 import { BOARD_COLORS, Z_LAYERS } from '@/lib/game/constants'
-import { PLAYER_COLORS, type PlayerColor } from '@/types/game'
+import { PLAYER_COLORS, type PlayerColor, type Player } from '@/types/game'
 
 // Enable to show track position numbers for debugging
 const DEBUG_SHOW_POSITIONS = true
@@ -12,6 +12,7 @@ export class BoardRenderer {
   private container: Container
   private boardGraphics: Graphics
   private safeSpaceGraphics: Graphics
+  private startingMarkerGraphics: Graphics
   private debugContainer: Container
   private debugLabels: Text[] = []
 
@@ -27,10 +28,12 @@ export class BoardRenderer {
     // Create graphics objects
     this.boardGraphics = new Graphics()
     this.safeSpaceGraphics = new Graphics()
+    this.startingMarkerGraphics = new Graphics()
     this.debugContainer = new Container()
 
     this.container.addChild(this.boardGraphics)
     this.container.addChild(this.safeSpaceGraphics)
+    this.container.addChild(this.startingMarkerGraphics)
     this.container.addChild(this.debugContainer)
 
     // Sort by z-index
@@ -138,17 +141,28 @@ export class BoardRenderer {
       this.boardGraphics.stroke({ color: BOARD_COLORS.GRID_LINE, width: 1 })
     })
 
-    // Draw starting position indicators
-    const colors: PlayerColor[] = ['green', 'yellow', 'blue', 'red']
-    colors.forEach((color) => {
-      const startIndex = this.geometry.getStartingPosition(color)
+    // Starting position indicators are drawn separately after players are loaded
+    // See updateStartingMarkers()
+  }
+
+  /**
+   * Update starting position markers using actual player data from the game state.
+   * This ensures markers match where tokens actually spawn.
+   */
+  updateStartingMarkers(players: Player[]): void {
+    this.startingMarkerGraphics.clear()
+    const trackPositions = this.geometry.getTrackPositions()
+    const cellSize = this.geometry.getCellSize()
+
+    players.forEach((player) => {
+      const startIndex = player.abs_starting_index
       if (startIndex < trackPositions.length) {
         const pos = trackPositions[startIndex]
-        const colorConfig = PLAYER_COLORS[color]
+        const colorConfig = PLAYER_COLORS[player.color]
 
-        // Draw a colored arrow or indicator at start position
-        this.boardGraphics.circle(pos.x, pos.y, cellSize * 0.15)
-        this.boardGraphics.fill({ color: colorConfig.primary })
+        // Draw a colored circle indicator at start position
+        this.startingMarkerGraphics.circle(pos.x, pos.y, cellSize * 0.15)
+        this.startingMarkerGraphics.fill({ color: colorConfig.primary })
       }
     })
   }
@@ -192,7 +206,7 @@ export class BoardRenderer {
     this.boardGraphics.fill({ color: BOARD_COLORS.CENTER })
 
     // Draw triangular sections for each player color
-    const colors: PlayerColor[] = ['green', 'yellow', 'blue', 'red']
+    const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow']
     const halfSize = centerSize / 2
 
     colors.forEach((color, index) => {
@@ -332,6 +346,7 @@ export class BoardRenderer {
     this.debugLabels = []
     this.boardGraphics.destroy()
     this.safeSpaceGraphics.destroy()
+    this.startingMarkerGraphics.destroy()
     this.debugContainer.destroy()
     this.container.destroy()
   }

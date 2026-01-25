@@ -4,6 +4,7 @@ import type {
   GameEndedEvent,
   TurnStartedEvent,
   TurnEndedEvent,
+  RollGrantedEvent,
   DiceRolledEvent,
   ThreeSixesPenaltyEvent,
   TokenMovedEvent,
@@ -22,7 +23,10 @@ import type {
   HighlightedToken,
 } from '@/types/game'
 import { ANIMATION_DURATIONS } from './constants'
+import { TRACK_LENGTH } from './boardGeometry'
 import { useGameStore, type GameStore } from '@/stores/gameStore'
+import { getHighlightableTokenIds } from './legalMoveParser'
+import { createLogEntry } from './eventLogUtils'
 
 type EventHandler<T extends GameEvent = GameEvent> = (
   event: T,
@@ -63,6 +67,24 @@ const handlers: Record<string, EventHandler<any>> = {
   },
 
   turn_started: (event: TurnStartedEvent, store: GameStore) => {
+    // Find the player whose turn it is
+    const player = store.players.find((p) => p.player_id === event.player_id)
+    const isMyTurn = event.player_id === store.myPlayerId
+
+    // Show turn transition notification
+    if (player) {
+      store.setTurnTransition({
+        playerName: player.name,
+        playerColor: player.color,
+        isMyTurn,
+      })
+
+      // Auto-hide after transition duration
+      setTimeout(() => {
+        store.setTurnTransition(null)
+      }, ANIMATION_DURATIONS.TURN_TRANSITION + 1500) // Show for 1.5s after animation
+    }
+
     store.setCurrentTurn({
       player_id: event.player_id,
       initial_roll: true,
@@ -71,20 +93,29 @@ const handlers: Record<string, EventHandler<any>> = {
       current_turn_order: event.turn_number,
       extra_rolls: 0,
     })
-    store.setCurrentEvent('player_roll')
+    // Note: dice UI trigger moved to roll_granted handler
     store.clearHighlightedTokens()
     store.setDiceValue(null)
+    store.setRollReason(null)
   },
 
   turn_ended: (event: TurnEndedEvent, store: GameStore) => {
     store.clearHighlightedTokens()
     store.setDiceValue(null)
+    store.setRollReason(null)
     // Turn will be set by next turn_started event
   },
 
+  roll_granted: (event: RollGrantedEvent, store: GameStore) => {
+    // This is the single trigger for enabling the dice roll UI
+    store.setCurrentEvent('player_roll')
+    store.setRollReason(event.reason)
+  },
+
   dice_rolled: (event: DiceRolledEvent, store: GameStore) => {
-    // Animation will handle dice display
-    // State update: add roll to allocate
+    const isMyRoll = event.player_id === store.myPlayerId
+
+    // Update state immediately for game logic
     if (event.grants_extra_roll) {
       store.updateTurn({ extra_rolls: (store.currentTurn?.extra_rolls ?? 0) + 1 })
     }
@@ -94,6 +125,21 @@ const handlers: Record<string, EventHandler<any>> = {
     store.enqueueAnimation(
       createAnimationItem('dice_roll', event, ANIMATION_DURATIONS.DICE_ROLL)
     )
+
+    if (isMyRoll) {
+      // For the rolling player, they have local animation in DicePanel
+      // Just set the dice value immediately - localRolling state handles display
+      store.setDiceValue(event.value)
+    } else {
+      // For opponents, trigger animation via diceRolling state
+      store.setDiceRolling(true)
+
+      // Clear rolling state and show dice value after animation completes
+      setTimeout(() => {
+        store.setDiceValue(event.value)
+        store.setDiceRolling(false)
+      }, ANIMATION_DURATIONS.DICE_ROLL)
+    }
   },
 
   three_sixes_penalty: (event: ThreeSixesPenaltyEvent, store: GameStore) => {
@@ -266,13 +312,20 @@ const handlers: Record<string, EventHandler<any>> = {
     // Highlight legal moves if it's my turn
     const isMyTurn = event.player_id === store.myPlayerId
     if (isMyTurn) {
-      const highlighted: HighlightedToken[] = event.legal_moves.map((moveId) => ({
-        tokenId: moveId,
+      // Use the parser to get highlightable token IDs
+      // This handles both direct tokens and stack representative tokens
+      const highlightableTokenIds = getHighlightableTokenIds(
+        event.legal_moves,
+        store.players
+      )
+
+      const highlighted: HighlightedToken[] = highlightableTokenIds.map((tokenId) => ({
+        tokenId,
         playerId: event.player_id,
         type: 'selectable' as const,
       }))
       store.setHighlightedTokens(highlighted)
-      store.setShowMoveChoiceModal(true)
+      // Note: Modal is no longer shown - direct token selection is used instead
     }
   },
 
@@ -310,6 +363,12 @@ export function processEvent(event: GameEvent): void {
     handler(event, store)
   } else {
     console.warn(`No handler for event type: ${event.event_type}`)
+  }
+
+  // Add to event log
+  const logEntry = createLogEntry(event, store.players)
+  if (logEntry) {
+    store.addLogEntry(logEntry)
   }
 }
 

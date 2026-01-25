@@ -1,11 +1,18 @@
 import type { StateCreator } from 'zustand'
-import type { HighlightedToken } from '@/types/game'
+import type { HighlightedToken, StackSplitSelection, PlayerColor, RollGrantedReason } from '@/types/game'
 import type { GameStore } from '../gameStore'
+
+export interface TurnTransition {
+  playerName: string
+  playerColor: PlayerColor
+  isMyTurn: boolean
+}
 
 export interface UiSlice {
   // State
   diceValue: number | null
   diceRolling: boolean
+  rollReason: RollGrantedReason | null
   highlightedTokens: HighlightedToken[]
   selectedTokenId: string | null
   showMoveChoiceModal: boolean
@@ -15,10 +22,13 @@ export interface UiSlice {
   finalRankings: string[]
   showPenaltyAnimation: boolean
   penaltyPlayerId: string | null
+  stackSplitSelection: StackSplitSelection | null
+  turnTransition: TurnTransition | null
 
   // Actions
   setDiceValue: (value: number | null) => void
   setDiceRolling: (rolling: boolean) => void
+  setRollReason: (reason: RollGrantedReason | null) => void
   setHighlightedTokens: (tokens: HighlightedToken[]) => void
   addHighlightedToken: (token: HighlightedToken) => void
   removeHighlightedToken: (tokenId: string) => void
@@ -29,12 +39,15 @@ export interface UiSlice {
   setShowVictoryScreen: (show: boolean) => void
   setWinner: (winnerId: string, rankings: string[]) => void
   setShowPenaltyAnimation: (show: boolean, playerId?: string | null) => void
+  setStackSplitSelection: (selection: StackSplitSelection | null) => void
+  setTurnTransition: (transition: TurnTransition | null) => void
   resetUi: () => void
 }
 
 const initialUiState = {
   diceValue: null,
   diceRolling: false,
+  rollReason: null as RollGrantedReason | null,
   highlightedTokens: [] as HighlightedToken[],
   selectedTokenId: null,
   showMoveChoiceModal: false,
@@ -44,6 +57,8 @@ const initialUiState = {
   finalRankings: [] as string[],
   showPenaltyAnimation: false,
   penaltyPlayerId: null,
+  stackSplitSelection: null as StackSplitSelection | null,
+  turnTransition: null as TurnTransition | null,
 }
 
 export const createUiSlice: StateCreator<
@@ -70,6 +85,15 @@ export const createUiSlice: StateCreator<
       },
       false,
       'setDiceRolling'
+    ),
+
+  setRollReason: (reason) =>
+    set(
+      (state) => {
+        state.rollReason = reason
+      },
+      false,
+      'setRollReason'
     ),
 
   setHighlightedTokens: (tokens) =>
@@ -172,6 +196,24 @@ export const createUiSlice: StateCreator<
       },
       false,
       'setShowPenaltyAnimation'
+    ),
+
+  setStackSplitSelection: (selection) =>
+    set(
+      (state) => {
+        state.stackSplitSelection = selection
+      },
+      false,
+      'setStackSplitSelection'
+    ),
+
+  setTurnTransition: (transition) =>
+    set(
+      (state) => {
+        state.turnTransition = transition
+      },
+      false,
+      'setTurnTransition'
     ),
 
   resetUi: () =>

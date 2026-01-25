@@ -5,9 +5,10 @@ import { createBoardSlice, type BoardSlice } from './slices/boardSlice'
 import { createTurnSlice, type TurnSlice } from './slices/turnSlice'
 import { createAnimationSlice, type AnimationSlice } from './slices/animationSlice'
 import { createUiSlice, type UiSlice } from './slices/uiSlice'
+import { createEventLogSlice, type EventLogSlice } from './slices/eventLogSlice'
 
 // Combined store type
-export type GameStore = BoardSlice & TurnSlice & AnimationSlice & UiSlice
+export type GameStore = BoardSlice & TurnSlice & AnimationSlice & UiSlice & EventLogSlice
 
 // Create the combined store with all middleware
 export const useGameStore = create<GameStore>()(
@@ -18,6 +19,7 @@ export const useGameStore = create<GameStore>()(
         ...createTurnSlice(...args),
         ...createAnimationSlice(...args),
         ...createUiSlice(...args),
+        ...createEventLogSlice(...args),
       }))
     ),
     {
@@ -34,7 +36,8 @@ export function resetGameStore() {
   store.resetTurn()
   store.clearAnimationQueue()
   store.resetUi()
+  store.clearLog()
 }
 
 // Export store type for external use
-export type { BoardSlice, TurnSlice, AnimationSlice, UiSlice }
+export type { BoardSlice, TurnSlice, AnimationSlice, UiSlice, EventLogSlice }

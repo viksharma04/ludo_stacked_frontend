@@ -14,6 +14,7 @@ export const useCurrentEvent = () => useGameStore((state) => state.currentEvent)
 export const useLegalMoves = () => useGameStore((state) => state.legalMoves)
 export const useDiceValue = () => useGameStore((state) => state.diceValue)
 export const useDiceRolling = () => useGameStore((state) => state.diceRolling)
+export const useRollReason = () => useGameStore((state) => state.rollReason)
 export const useIsAnimating = () => useGameStore((state) => state.isAnimating)
 export const useAnimationQueue = () =>
   useGameStore((state) => state.animationQueue)
@@ -164,6 +165,17 @@ export const useShowPenaltyAnimation = () =>
   useGameStore((state) => state.showPenaltyAnimation)
 export const usePenaltyPlayerId = () =>
   useGameStore((state) => state.penaltyPlayerId)
+
+// Stack split selection
+export const useStackSplitSelection = () =>
+  useGameStore((state) => state.stackSplitSelection)
+
+// Turn transition
+export const useTurnTransition = () =>
+  useGameStore((state) => state.turnTransition)
+
+// Event log
+export const useLogEntries = () => useGameStore((state) => state.logEntries)
 
 // Get token by ID
 export const useTokenById = (

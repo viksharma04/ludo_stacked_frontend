@@ -4,12 +4,35 @@ import { useState, useCallback } from 'react'
 import {
   useDiceValue,
   useDiceRolling,
+  useRollReason,
   useCanRoll,
   useRollsToAllocate,
   useIsMyTurn,
   useCurrentEvent,
+  useMyPlayer,
 } from '@/stores/selectors'
 import { ANIMATION_DURATIONS } from '@/lib/game/constants'
+import type { PlayerColor } from '@/types/game'
+
+// Player color to Tailwind CSS classes mapping
+const PLAYER_BUTTON_COLORS: Record<PlayerColor, { enabled: string; hover: string }> = {
+  red: {
+    enabled: 'bg-red-500',
+    hover: 'hover:bg-red-600',
+  },
+  blue: {
+    enabled: 'bg-blue-500',
+    hover: 'hover:bg-blue-600',
+  },
+  green: {
+    enabled: 'bg-green-500',
+    hover: 'hover:bg-green-600',
+  },
+  yellow: {
+    enabled: 'bg-yellow-500',
+    hover: 'hover:bg-yellow-600',
+  },
+}
 
 interface DicePanelProps {
   onRoll: (value: number) => void
@@ -88,12 +111,19 @@ function DiceFace({
 export function DicePanel({ onRoll, className = '' }: DicePanelProps) {
   const diceValue = useDiceValue()
   const diceRolling = useDiceRolling()
+  const rollReason = useRollReason()
   const canRoll = useCanRoll()
   const rollsToAllocate = useRollsToAllocate()
   const isMyTurn = useIsMyTurn()
   const currentEvent = useCurrentEvent()
+  const myPlayer = useMyPlayer()
 
   const [localRolling, setLocalRolling] = useState(false)
+
+  // Get button colors based on player color
+  const buttonColors = myPlayer?.color
+    ? PLAYER_BUTTON_COLORS[myPlayer.color]
+    : { enabled: 'bg-accent', hover: 'hover:bg-accent-hover' }
 
   const handleRoll = useCallback(() => {
     if (!canRoll || localRolling || diceRolling) return
@@ -113,6 +143,20 @@ export function DicePanel({ onRoll, className = '' }: DicePanelProps) {
   const isRolling = localRolling || diceRolling
   const showRollButton = isMyTurn && currentEvent === 'player_roll'
 
+  // Get bonus roll message based on reason
+  const getBonusRollMessage = () => {
+    if (!showRollButton || !rollReason) return null
+    switch (rollReason) {
+      case 'rolled_six':
+        return 'You rolled a 6! Roll again!'
+      case 'capture_bonus':
+        return 'Capture bonus! Roll again!'
+      default:
+        return null
+    }
+  }
+  const bonusMessage = getBonusRollMessage()
+
   return (
     <div
       className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}
@@ -130,14 +174,21 @@ export function DicePanel({ onRoll, className = '' }: DicePanelProps) {
           </p>
         )}
 
-        {/* Pending rolls indicator */}
-        {rollsToAllocate.length > 0 && (
+        {/* Pending rolls indicator - hidden during animation */}
+        {rollsToAllocate.length > 0 && !isRolling && (
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Rolls to use:{' '}
             <span className="font-medium text-accent">
               {rollsToAllocate.join(', ')}
             </span>
           </div>
+        )}
+
+        {/* Bonus roll indicator */}
+        {bonusMessage && !isRolling && (
+          <p className="text-sm font-medium text-green-600 dark:text-green-400 text-center animate-pulse">
+            {bonusMessage}
+          </p>
         )}
 
         {/* Roll button */}
@@ -150,7 +201,7 @@ export function DicePanel({ onRoll, className = '' }: DicePanelProps) {
               transition-all duration-200
               ${
                 canRoll && !isRolling
-                  ? 'bg-accent hover:bg-accent-hover active:scale-95 cursor-pointer'
+                  ? `${buttonColors.enabled} ${buttonColors.hover} active:scale-95 cursor-pointer`
                   : 'bg-gray-400 cursor-not-allowed'
               }
             `}

@@ -123,6 +123,7 @@ export type GameEventType =
   | 'game_ended'
   | 'turn_started'
   | 'turn_ended'
+  | 'roll_granted'
   | 'dice_rolled'
   | 'three_sixes_penalty'
   | 'token_moved'
@@ -143,6 +144,14 @@ export interface BaseGameEvent {
 }
 
 // Roll Events
+export type RollGrantedReason = 'turn_start' | 'rolled_six' | 'capture_bonus'
+
+export interface RollGrantedEvent extends BaseGameEvent {
+  event_type: 'roll_granted'
+  player_id: string
+  reason: RollGrantedReason
+}
+
 export interface DiceRolledEvent extends BaseGameEvent {
   event_type: 'dice_rolled'
   player_id: string
@@ -285,6 +294,7 @@ export type GameEvent =
   | StackMovedEvent
   | TurnStartedEvent
   | TurnEndedEvent
+  | RollGrantedEvent
   | AwaitingChoiceEvent
   | AwaitingCaptureChoiceEvent
   | GameStartedEvent
@@ -388,4 +398,37 @@ export const PLAYER_COLORS: Record<PlayerColor, PlayerColorConfig> = {
     home: 0xfff9c4,
     homestretch: 0xfff59d,
   },
+}
+
+// ============================================================================
+// Parsed Legal Move Types
+// ============================================================================
+
+export interface ParsedLegalMove {
+  rawId: string           // Original ID from server
+  type: 'token' | 'stack'
+  entityId: string        // Token ID or Stack ID (without :count)
+  stackSplitCount?: number
+}
+
+export interface StackSplitSelection {
+  stackId: string
+  options: ParsedLegalMove[]
+  position: { x: number; y: number }
+}
+
+// ============================================================================
+// Event Log Types
+// ============================================================================
+
+export type EventLogSeverity = 'info' | 'success' | 'warning' | 'danger'
+
+export interface GameLogEntry {
+  id: string
+  timestamp: number
+  eventType: GameEventType
+  message: string
+  playerId: string | null
+  playerColor: PlayerColor | null
+  severity: EventLogSeverity
 }

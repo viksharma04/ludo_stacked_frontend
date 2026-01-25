@@ -5,15 +5,21 @@ import { useRouter } from 'next/navigation'
 import { GameCanvas } from './GameCanvas'
 import { GameHUD } from './GameHUD'
 import { DicePanel } from './DicePanel'
-import { MoveChoiceModal } from './MoveChoiceModal'
+import { EventLog } from './EventLog'
 import { CaptureChoiceModal } from './CaptureChoiceModal'
 import { VictoryScreen } from './VictoryScreen'
+import { TurnTransitionToast } from './TurnTransitionToast'
 import { useGameWebSocket } from '@/hooks/useGameWebSocket'
 import { useGameStore } from '@/stores/gameStore'
-import { usePhase, useIsAnimating, useShowPenaltyAnimation, usePenaltyPlayerId, usePlayerById } from '@/stores/selectors'
+import { usePhase, useIsAnimating, useShowPenaltyAnimation, usePenaltyPlayerId, usePlayerById, useLegalMoves, usePlayers } from '@/stores/selectors'
 import type { PixiApp } from '@/lib/pixi/PixiApp'
 import type { AnimationController } from '@/lib/pixi/AnimationController'
 import type { GameEvent } from '@/types/game'
+import {
+  findEntityForToken,
+  groupLegalMoves,
+  getStackInfo,
+} from '@/lib/game/legalMoveParser'
 
 interface GameBoardProps {
   sendMessage: (message: { type: string; request_id?: string; payload?: unknown }) => void
@@ -32,6 +38,8 @@ export function GameBoard({
   const showPenaltyAnimation = useShowPenaltyAnimation()
   const penaltyPlayerId = usePenaltyPlayerId()
   const penaltyPlayer = usePlayerById(penaltyPlayerId ?? '')
+  const legalMoves = useLegalMoves()
+  const players = usePlayers()
 
   const [pixiApp, setPixiApp] = useState<PixiApp | null>(null)
   const [animationController, setAnimationController] = useState<AnimationController | null>(null)
@@ -66,13 +74,85 @@ export function GameBoard({
     []
   )
 
-  // Handle token clicks
+  // Handle token clicks with new direct selection flow
   const handleTokenClick = useCallback(
     (tokenId: string) => {
-      selectMove(tokenId)
+      if (!pixiApp) return
+
+      const tokenRenderer = pixiApp.getTokenRenderer()
+      const geometry = pixiApp.getGeometry()
+      if (!tokenRenderer || !geometry) return
+
+      // Clear any existing split options first
+      tokenRenderer.clearSplitOptions()
+
+      // Find what entity this token belongs to (token or stack)
+      // Pass legalMoves to ensure we use the correct entity type based on actual legal moves
+      const entity = findEntityForToken(tokenId, players, legalMoves)
+
+      // Group legal moves to find options for this entity
+      const groupedMoves = groupLegalMoves(legalMoves)
+
+      const options = groupedMoves.get(entity.entityId)
+
+      if (!options || options.length === 0) {
+        // Not a legal move, ignore
+        return
+      }
+
+      if (options.length === 1) {
+        // Single option - submit move directly
+        selectMove(options[0].rawId)
+      } else {
+        // Multiple options - show split selection overlay
+        const stackInfo = getStackInfo(entity.entityId, players)
+        if (!stackInfo) return
+
+        // Get the position of the first token in the stack
+        const firstTokenId = stackInfo.stack.tokens[0]
+        const firstTokenPlayer = players.find(p => p.player_id === stackInfo.playerId)
+        if (!firstTokenPlayer) return
+
+        const firstToken = firstTokenPlayer.tokens.find(t => t.token_id === firstTokenId)
+        if (!firstToken) return
+
+        const position = geometry.getTokenPosition(
+          firstTokenPlayer.color,
+          firstTokenPlayer.abs_starting_index,
+          firstToken.state,
+          firstToken.progress,
+          0
+        )
+
+        tokenRenderer.showStackSplitOptions(
+          options,
+          position,
+          stackInfo.stack.tokens.length,
+          firstTokenPlayer.color,
+          (rawId: string) => {
+            tokenRenderer.clearSplitOptions()
+            selectMove(rawId)
+          }
+        )
+      }
     },
-    [selectMove]
+    [selectMove, pixiApp, players, legalMoves]
   )
+
+  // Handle escape key to cancel split selection
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && pixiApp) {
+        const tokenRenderer = pixiApp.getTokenRenderer()
+        if (tokenRenderer?.hasSplitOptionsVisible()) {
+          tokenRenderer.clearSplitOptions()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [pixiApp])
 
   // Handle return to lobby
   const handleReturnToLobby = useCallback(() => {
@@ -118,12 +198,15 @@ export function GameBoard({
       <div className="w-full lg:w-80 flex flex-col gap-4">
         <GameHUD />
         <DicePanel onRoll={rollDice} />
+        <EventLog />
       </div>
 
       {/* Modals */}
-      <MoveChoiceModal onSelectMove={selectMove} />
       <CaptureChoiceModal onSelectChoice={selectCaptureChoice} />
       <VictoryScreen onReturnToLobby={handleReturnToLobby} />
+
+      {/* Turn transition toast */}
+      <TurnTransitionToast />
     </div>
   )
 }
