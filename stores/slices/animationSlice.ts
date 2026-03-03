@@ -9,6 +9,9 @@ export interface AnimationSlice {
   isFastForwarding: boolean
   lastProcessedSeq: number
   currentAnimation: AnimationQueueItem | null
+  // Token IDs that have pending/active animations - prevents position updates during animation
+  // Using array instead of Set for Immer compatibility
+  animatingTokenIds: string[]
 
   // Actions
   enqueueAnimation: (item: AnimationQueueItem) => void
@@ -20,6 +23,8 @@ export interface AnimationSlice {
   setCurrentAnimation: (animation: AnimationQueueItem | null) => void
   clearAnimationQueue: () => void
   skipToEnd: () => void
+  addAnimatingTokens: (tokenIds: string[]) => void
+  removeAnimatingTokens: (tokenIds: string[]) => void
 }
 
 const initialAnimationState = {
@@ -28,6 +33,7 @@ const initialAnimationState = {
   isFastForwarding: false,
   lastProcessedSeq: -1,
   currentAnimation: null,
+  animatingTokenIds: [] as string[],
 }
 
 export const createAnimationSlice: StateCreator<
@@ -135,8 +141,35 @@ export const createAnimationSlice: StateCreator<
         state.currentAnimation = null
         state.isAnimating = false
         state.isFastForwarding = false
+        state.animatingTokenIds = []
       },
       false,
       'skipToEnd'
+    ),
+
+  addAnimatingTokens: (tokenIds) =>
+    set(
+      (state) => {
+        // Add token IDs that aren't already in the array
+        tokenIds.forEach((id) => {
+          if (!state.animatingTokenIds.includes(id)) {
+            state.animatingTokenIds.push(id)
+          }
+        })
+      },
+      false,
+      'addAnimatingTokens'
+    ),
+
+  removeAnimatingTokens: (tokenIds) =>
+    set(
+      (state) => {
+        // Remove specified token IDs from the array
+        state.animatingTokenIds = state.animatingTokenIds.filter(
+          (id) => !tokenIds.includes(id)
+        )
+      },
+      false,
+      'removeAnimatingTokens'
     ),
 })

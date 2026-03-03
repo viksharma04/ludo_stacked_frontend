@@ -7,7 +7,7 @@ import {
 } from 'pixi.js'
 import { BoardGeometry } from '@/lib/game/boardGeometry'
 import { TOKEN_VISUAL, Z_LAYERS } from '@/lib/game/constants'
-import { PLAYER_COLORS, type Player, type Token, type PlayerColor, type ParsedLegalMove } from '@/types/game'
+import { PLAYER_COLORS, type Player, type Token, type PlayerColor, type ParsedLegalMove, type HighlightedToken } from '@/types/game'
 
 interface TokenSprite {
   tokenId: string
@@ -24,34 +24,31 @@ interface SplitOption {
   rawId: string
 }
 
+interface StackSprite {
+  stackId: string
+  playerId: string
+  playerColor: PlayerColor
+  graphics: Graphics
+  badge: Container
+  isHighlighted: boolean
+}
+
 export class TokenRenderer {
   private app: Application
   private geometry: BoardGeometry
   private container: Container
+  private stackContainer: Container
   private splitOptionsContainer: Container
   private tokens: Map<string, TokenSprite> = new Map()
+  private stacks: Map<string, StackSprite> = new Map()
   private splitOptions: SplitOption[] = []
   private highlightedTokenIds: Set<string> = new Set()
+  private highlightedStackIds: Set<string> = new Set()
   private animatingTokenIds: Set<string> = new Set()
   private selectedTokenId: string | null = null
   private clickHandler: ((tokenId: string) => void) | null = null
   private splitOptionSelectHandler: ((rawId: string) => void) | null = null
   private pulseTime = 0
-
-  /**
-   * Deterministically select lead token from a stack.
-   * Uses lowest token number to ensure all clients agree.
-   */
-  private getLeadTokenId(tokens: string[]): string | null {
-    if (tokens.length === 0) return null
-
-    // Sort tokens by their numeric suffix (e.g., token_1 < token_2)
-    return tokens.slice().sort((a, b) => {
-      const numA = parseInt(a.split('_').pop() || '0', 10)
-      const numB = parseInt(b.split('_').pop() || '0', 10)
-      return numA - numB
-    })[0]
-  }
 
   constructor(app: Application, geometry: BoardGeometry) {
     this.app = app
@@ -62,6 +59,12 @@ export class TokenRenderer {
     this.container.zIndex = Z_LAYERS.TOKENS_BASE
     this.container.sortableChildren = true
     this.app.stage.addChild(this.container)
+
+    // Create container for stacks (rendered above individual tokens)
+    this.stackContainer = new Container()
+    this.stackContainer.zIndex = Z_LAYERS.TOKENS_BASE + 1
+    this.stackContainer.sortableChildren = true
+    this.app.stage.addChild(this.stackContainer)
 
     // Create container for split options overlay
     this.splitOptionsContainer = new Container()
@@ -80,9 +83,24 @@ export class TokenRenderer {
     this.clickHandler = handler
   }
 
-  setHighlightedTokens(tokenIds: string[]): void {
-    this.highlightedTokenIds = new Set(tokenIds)
+  /**
+   * Set highlighted entities (tokens and stacks) from the store's highlightedTokens array
+   * Separates token IDs and stack IDs into different sets for proper highlighting
+   */
+  setHighlightedEntities(entities: HighlightedToken[]): void {
+    this.highlightedTokenIds.clear()
+    this.highlightedStackIds.clear()
+
+    for (const entity of entities) {
+      if (entity.entityType === 'token') {
+        this.highlightedTokenIds.add(entity.tokenId)
+      } else {
+        this.highlightedStackIds.add(entity.tokenId)
+      }
+    }
+
     this.updateHighlightState()
+    this.updateStackHighlightState()
   }
 
   setSelectedToken(tokenId: string | null): void {
@@ -90,20 +108,8 @@ export class TokenRenderer {
     this.updateHighlightState()
   }
 
-  updateTokens(players: Player[]): void {
+  updateTokens(players: Player[], storeAnimatingTokenIds?: string[]): void {
     const currentTokenIds = new Set<string>()
-
-    // Build a map of lead token IDs to stack size
-    // Lead token is deterministically selected (lowest token number) to ensure all clients agree
-    const leadTokenStackSize = new Map<string, number>()
-    players.forEach((player) => {
-      player.stacks?.forEach((stack) => {
-        const leadToken = this.getLeadTokenId(stack.tokens)
-        if (leadToken) {
-          leadTokenStackSize.set(leadToken, stack.tokens.length)
-        }
-      })
-    })
 
     players.forEach((player) => {
       const tokenIndex: Record<string, number> = {}
@@ -128,8 +134,12 @@ export class TokenRenderer {
           this.container.addChild(sprite.graphics)
         }
 
-        // Update position (skip if token is being animated)
-        if (!this.animatingTokenIds.has(token.token_id)) {
+        // Update position (skip if token is being animated or has pending animation)
+        // Check both local animatingTokenIds (active animations) and store's array (pending animations)
+        const isAnimating = this.animatingTokenIds.has(token.token_id) ||
+          (storeAnimatingTokenIds?.includes(token.token_id) ?? false)
+
+        if (!isAnimating) {
           const position = this.geometry.getTokenPosition(
             player.color,
             player.abs_starting_index,
@@ -142,22 +152,11 @@ export class TokenRenderer {
           sprite.graphics.y = position.y
         }
 
-        // Update visibility based on stack state
-        // Show token if it's not in a stack, OR if it's the lead token of a stack
-        const stackSize = leadTokenStackSize.get(token.token_id)
-        const isLeadToken = stackSize !== undefined
-        sprite.graphics.visible = !token.in_stack || isLeadToken
-
-        // Update stack badge
-        if (isLeadToken && stackSize > 1) {
-          this.updateStackBadge(sprite, stackSize)
-          sprite.stackBadge.visible = true
-        } else {
-          sprite.stackBadge.visible = false
-          // Clear text to prevent stale content if re-render timing is off
-          const text = sprite.stackBadge.getChildByName('badgeText') as Text
-          if (text) text.text = ''
-        }
+        // Hide tokens that are in a stack UNLESS they're animating
+        // During animation, tokens remain visible; after animation completes, stack sprite takes over
+        sprite.graphics.visible = !token.in_stack || isAnimating
+        // Token badges no longer needed (badges are on stack sprites)
+        sprite.stackBadge.visible = false
 
         tokenIndex[stateKey]++
       })
@@ -171,6 +170,9 @@ export class TokenRenderer {
         this.tokens.delete(tokenId)
       }
     }
+
+    // Update stack sprites
+    this.updateStacks(players, storeAnimatingTokenIds)
   }
 
   private createTokenSprite(
@@ -299,9 +301,24 @@ export class TokenRenderer {
     }
   }
 
+  private updateStackHighlightState(): void {
+    for (const [stackId, stackSprite] of this.stacks) {
+      const isHighlighted = this.highlightedStackIds.has(stackId)
+      stackSprite.isHighlighted = isHighlighted
+      stackSprite.graphics.cursor = isHighlighted ? 'pointer' : 'default'
+
+      if (isHighlighted) {
+        stackSprite.graphics.zIndex = Z_LAYERS.TOKENS_HIGHLIGHTED
+      } else {
+        stackSprite.graphics.zIndex = Z_LAYERS.TOKENS_BASE
+      }
+    }
+  }
+
   private animate(ticker: { deltaTime: number }): void {
     this.pulseTime += ticker.deltaTime * 0.05
 
+    // Animate highlighted tokens
     for (const [tokenId, sprite] of this.tokens) {
       if (sprite.isHighlighted || sprite.isSelected) {
         const colorConfig = PLAYER_COLORS[sprite.playerColor]
@@ -333,6 +350,39 @@ export class TokenRenderer {
             alpha: 0.3 + Math.sin(this.pulseTime * 2) * 0.2,
           })
         }
+      }
+    }
+
+    // Animate highlighted stacks
+    for (const [stackId, stackSprite] of this.stacks) {
+      if (stackSprite.isHighlighted && stackSprite.graphics.visible) {
+        const colorConfig = PLAYER_COLORS[stackSprite.playerColor]
+        const cellSize = this.geometry.getCellSize()
+        const radius = cellSize * TOKEN_VISUAL.RADIUS_RATIO
+
+        // Pulse scale for highlighted stacks
+        const scale = 1 + Math.sin(this.pulseTime * TOKEN_VISUAL.HIGHLIGHT_PULSE_SPEED) * 0.08
+
+        this.drawToken(
+          stackSprite.graphics,
+          radius,
+          colorConfig.primary,
+          colorConfig.secondary,
+          scale
+        )
+
+        // Re-add badge after redrawing (drawToken clears graphics)
+        if (!stackSprite.graphics.children.includes(stackSprite.badge)) {
+          stackSprite.graphics.addChild(stackSprite.badge)
+        }
+
+        // Add glow effect for highlighted stacks
+        stackSprite.graphics.circle(0, 0, radius * scale * 1.2)
+        stackSprite.graphics.stroke({
+          color: 0xffffff,
+          width: 3,
+          alpha: 0.3 + Math.sin(this.pulseTime * 2) * 0.2,
+        })
       }
     }
   }
@@ -692,6 +742,163 @@ export class TokenRenderer {
     return this.splitOptions.length > 0
   }
 
+  /**
+   * Update stack sprites - stacks are rendered as distinct entities
+   */
+  private updateStacks(players: Player[], storeAnimatingTokenIds?: string[]): void {
+    const currentStackIds = new Set<string>()
+
+    // Build token lookup for position calculation
+    const tokenLookup = new Map<string, { token: Token; player: Player }>()
+    players.forEach((player) => {
+      player.tokens.forEach((token) => {
+        tokenLookup.set(token.token_id, { token, player })
+      })
+    })
+
+    players.forEach((player) => {
+      player.stacks?.forEach((stack) => {
+        currentStackIds.add(stack.stack_id)
+
+        // Check if any token in stack is animating
+        const isAnimating = stack.tokens.some(
+          (tokenId) =>
+            this.animatingTokenIds.has(tokenId) ||
+            (storeAnimatingTokenIds?.includes(tokenId) ?? false)
+        )
+
+        let stackSprite = this.stacks.get(stack.stack_id)
+
+        if (!stackSprite) {
+          // Create new stack sprite
+          stackSprite = this.createStackSprite(
+            stack.stack_id,
+            player.player_id,
+            player.color,
+            stack.tokens.length
+          )
+          this.stacks.set(stack.stack_id, stackSprite)
+          this.stackContainer.addChild(stackSprite.graphics)
+        } else {
+          // Update badge count
+          this.updateBadgeCount(stackSprite, stack.tokens.length)
+        }
+
+        // Update position from first token's progress (all tokens share same progress)
+        if (!isAnimating && stack.tokens.length > 0) {
+          const firstTokenId = stack.tokens[0]
+          const tokenData = tokenLookup.get(firstTokenId)
+          if (tokenData) {
+            const position = this.geometry.getTokenPosition(
+              player.color,
+              player.abs_starting_index,
+              tokenData.token.state,
+              tokenData.token.progress,
+              0 // idx doesn't matter for road/homestretch
+            )
+            stackSprite.graphics.x = position.x
+            stackSprite.graphics.y = position.y
+          }
+        }
+
+        // Hide stack sprite if tokens are animating (tokens show during animation)
+        stackSprite.graphics.visible = !isAnimating
+
+        // Update highlight state - direct check against highlightedStackIds
+        const isHighlighted = this.highlightedStackIds.has(stack.stack_id)
+        stackSprite.isHighlighted = isHighlighted
+        stackSprite.graphics.cursor = isHighlighted ? 'pointer' : 'default'
+        if (isHighlighted) {
+          stackSprite.graphics.zIndex = Z_LAYERS.TOKENS_HIGHLIGHTED
+        } else {
+          stackSprite.graphics.zIndex = Z_LAYERS.TOKENS_BASE
+        }
+      })
+    })
+
+    // Remove stacks that no longer exist
+    for (const [stackId, stackSprite] of this.stacks) {
+      if (!currentStackIds.has(stackId)) {
+        this.stackContainer.removeChild(stackSprite.graphics)
+        stackSprite.graphics.destroy()
+        this.stacks.delete(stackId)
+      }
+    }
+  }
+
+  /**
+   * Create a stack sprite with badge
+   */
+  private createStackSprite(
+    stackId: string,
+    playerId: string,
+    playerColor: PlayerColor,
+    tokenCount: number
+  ): StackSprite {
+    const graphics = new Graphics()
+    const colorConfig = PLAYER_COLORS[playerColor]
+    const cellSize = this.geometry.getCellSize()
+    const radius = cellSize * TOKEN_VISUAL.RADIUS_RATIO
+
+    // Draw stack visual (same as token)
+    this.drawToken(graphics, radius, colorConfig.primary, colorConfig.secondary)
+
+    // Create badge container
+    const badge = this.createStackBadge(radius)
+    this.updateBadgeCount({ badge } as StackSprite, tokenCount)
+    badge.visible = tokenCount > 1
+    graphics.addChild(badge)
+
+    // Make interactive
+    graphics.eventMode = 'static'
+    graphics.cursor = 'pointer'
+
+    // Click handler - use stack_id to allow legalMoveParser to identify it
+    graphics.on('pointerdown', () => {
+      const stackSprite = this.stacks.get(stackId)
+      if (this.clickHandler) {
+        // Only allow click if stack is highlighted (has legal moves)
+        if (stackSprite?.isHighlighted) {
+          this.clickHandler(stackId)
+        }
+      }
+    })
+
+    return {
+      stackId,
+      playerId,
+      playerColor,
+      graphics,
+      badge,
+      isHighlighted: false,
+    }
+  }
+
+  /**
+   * Update badge count for a stack sprite
+   */
+  private updateBadgeCount(sprite: StackSprite, count: number): void {
+    const text = sprite.badge.getChildByName('badgeText') as Text
+    if (text) {
+      text.text = String(count)
+    }
+    sprite.badge.visible = count > 1
+  }
+
+  /**
+   * Get a stack sprite by ID (for animation controller)
+   */
+  getStackSprite(stackId: string): StackSprite | null {
+    return this.stacks.get(stackId) ?? null
+  }
+
+  /**
+   * Get stack graphics for direct manipulation (for animation)
+   */
+  getStackGraphics(stackId: string): Graphics | null {
+    return this.stacks.get(stackId)?.graphics ?? null
+  }
+
   destroy(): void {
     this.app.ticker.remove(this.animate.bind(this))
 
@@ -699,8 +906,15 @@ export class TokenRenderer {
       sprite.graphics.destroy()
     }
     this.tokens.clear()
+
+    for (const stackSprite of this.stacks.values()) {
+      stackSprite.graphics.destroy()
+    }
+    this.stacks.clear()
+
     this.clearSplitOptions()
     this.splitOptionsContainer.destroy()
+    this.stackContainer.destroy()
     this.container.destroy()
   }
 }

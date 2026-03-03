@@ -86,7 +86,7 @@ export class PixiApp {
 
     if (this.tokenRenderer) {
       this.tokenRenderer.setGeometry(this.geometry)
-      this.tokenRenderer.updateTokens(state.players)
+      this.tokenRenderer.updateTokens(state.players, state.animatingTokenIds)
     }
   }
 
@@ -96,7 +96,9 @@ export class PixiApp {
       (state) => state.players,
       (players) => {
         if (this.tokenRenderer) {
-          this.tokenRenderer.updateTokens(players)
+          // Pass store's animatingTokenIds to prevent position updates for tokens with pending animations
+          const storeAnimatingTokenIds = useGameStore.getState().animatingTokenIds
+          this.tokenRenderer.updateTokens(players, storeAnimatingTokenIds)
         }
         // Update starting position markers to use actual player abs_starting_index
         if (this.boardRenderer && players.length > 0) {
@@ -121,14 +123,12 @@ export class PixiApp {
     )
     this.unsubscribers.push(unsubBoardSetup)
 
-    // Subscribe to highlighted tokens
+    // Subscribe to highlighted tokens - pass full entity info for proper stack highlighting
     const unsubHighlighted = useGameStore.subscribe(
       (state) => state.highlightedTokens,
       (highlighted) => {
         if (this.tokenRenderer) {
-          this.tokenRenderer.setHighlightedTokens(
-            highlighted.map((h) => h.tokenId)
-          )
+          this.tokenRenderer.setHighlightedEntities(highlighted)
         }
       }
     )
@@ -144,6 +144,19 @@ export class PixiApp {
       }
     )
     this.unsubscribers.push(unsubSelected)
+
+    // Subscribe to animatingTokenIds to update visibility when animations complete
+    // This ensures stack sprites become visible after their formation animation ends
+    const unsubAnimating = useGameStore.subscribe(
+      (state) => state.animatingTokenIds,
+      (animatingTokenIds) => {
+        if (this.tokenRenderer) {
+          const players = useGameStore.getState().players
+          this.tokenRenderer.updateTokens(players, animatingTokenIds)
+        }
+      }
+    )
+    this.unsubscribers.push(unsubAnimating)
   }
 
   // Initialize board with setup data
@@ -156,7 +169,8 @@ export class PixiApp {
     if (players.length > 0) {
       this.boardRenderer.updateStartingMarkers(players)
     }
-    this.tokenRenderer.updateTokens(players)
+    const storeAnimatingTokenIds = useGameStore.getState().animatingTokenIds
+    this.tokenRenderer.updateTokens(players, storeAnimatingTokenIds)
   }
 
   // Get the board renderer for animations

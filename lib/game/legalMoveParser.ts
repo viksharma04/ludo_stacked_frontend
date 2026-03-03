@@ -1,4 +1,4 @@
-import type { ParsedLegalMove, Player, Stack } from '@/types/game'
+import type { ParsedLegalMove, Player, Stack, HighlightableEntity } from '@/types/game'
 
 /**
  * Parse a single legal move ID from the server
@@ -56,66 +56,41 @@ export function groupLegalMoves(moveIds: string[]): Map<string, ParsedLegalMove[
 }
 
 /**
- * Get token IDs that should be highlighted on the board
+ * Get entities that should be highlighted on the board
  *
- * For tokens: returns the token ID directly
- * For stacks: returns the lead token in the stack (deterministically selected)
+ * For tokens: returns the token ID directly with type 'token'
+ * For stacks: returns the stack ID directly with type 'stack' (no lead token substitution)
  */
-export function getHighlightableTokenIds(
-  moveIds: string[],
-  players: Player[]
-): string[] {
+export function getHighlightableEntities(
+  moveIds: string[]
+): HighlightableEntity[] {
   const grouped = groupLegalMoves(moveIds)
-  const tokenIds: string[] = []
+  const entities: HighlightableEntity[] = []
 
   for (const [entityId, moves] of grouped) {
     const firstMove = moves[0]
 
     if (firstMove.type === 'token') {
-      // Direct token - add its ID
-      tokenIds.push(entityId)
+      // Direct token - add with token type
+      entities.push({ id: entityId, type: 'token' })
     } else {
-      // Stack - find the stack and get its lead token (deterministically selected)
-      const token = findLeadTokenInStack(entityId, players)
-      if (token) {
-        tokenIds.push(token)
-      }
+      // Stack - return the stack ID directly, not a lead token
+      entities.push({ id: entityId, type: 'stack' })
     }
   }
 
-  return tokenIds
+  return entities
 }
 
 /**
- * Find the lead token ID in a stack (used for highlighting)
- * Uses deterministic selection (lowest token number) to ensure all clients agree
- */
-function findLeadTokenInStack(stackId: string, players: Player[]): string | null {
-  for (const player of players) {
-    if (player.stacks) {
-      const stack = player.stacks.find((s) => s.stack_id === stackId)
-      if (stack && stack.tokens.length > 0) {
-        // Use deterministic selection - lowest token number
-        return stack.tokens.slice().sort((a, b) => {
-          const numA = parseInt(a.split('_').pop() || '0', 10)
-          const numB = parseInt(b.split('_').pop() || '0', 10)
-          return numA - numB
-        })[0]
-      }
-    }
-  }
-  return null
-}
-
-/**
- * Find which entity (token or stack) was clicked based on token ID
+ * Find which entity (token or stack) was clicked based on token ID or stack ID
  * Returns the entityId used in legal moves
  *
  * IMPORTANT: We check legal moves first to determine entity type.
  * This handles cases where player.stacks may be stale (e.g., after a stack split).
  */
 export function findEntityForToken(
-  clickedTokenId: string,
+  clickedId: string,
   players: Player[],
   legalMoves?: string[]
 ): { entityId: string; type: 'token' | 'stack' } {
@@ -123,16 +98,22 @@ export function findEntityForToken(
   if (legalMoves && legalMoves.length > 0) {
     const groupedMoves = groupLegalMoves(legalMoves)
 
-    // First check if this token ID is directly in legal moves
-    if (groupedMoves.has(clickedTokenId)) {
-      return { entityId: clickedTokenId, type: 'token' }
+    // Check if this is a stack ID that's directly in legal moves
+    // (This handles the case where a stack sprite was clicked)
+    if (clickedId.includes('stack') && groupedMoves.has(clickedId)) {
+      return { entityId: clickedId, type: 'stack' }
+    }
+
+    // Check if this token ID is directly in legal moves
+    if (groupedMoves.has(clickedId)) {
+      return { entityId: clickedId, type: 'token' }
     }
 
     // Check if this token is part of a stack that has legal moves
     for (const player of players) {
       if (player.stacks) {
         for (const stack of player.stacks) {
-          if (stack.tokens.includes(clickedTokenId)) {
+          if (stack.tokens.includes(clickedId)) {
             // Only return stack if the stack actually has legal moves
             if (groupedMoves.has(stack.stack_id)) {
               return { entityId: stack.stack_id, type: 'stack' }
@@ -147,7 +128,7 @@ export function findEntityForToken(
   for (const player of players) {
     if (player.stacks) {
       for (const stack of player.stacks) {
-        if (stack.tokens.includes(clickedTokenId)) {
+        if (stack.tokens.includes(clickedId)) {
           return { entityId: stack.stack_id, type: 'stack' }
         }
       }
@@ -155,7 +136,7 @@ export function findEntityForToken(
   }
 
   // Not in a stack, return as token
-  return { entityId: clickedTokenId, type: 'token' }
+  return { entityId: clickedId, type: 'token' }
 }
 
 /**

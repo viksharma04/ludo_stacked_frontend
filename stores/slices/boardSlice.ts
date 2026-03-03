@@ -14,7 +14,6 @@ export interface BoardSlice {
   phase: GamePhase
   players: Player[]
   boardSetup: BoardSetup | null
-  globalStacks: Stack[] | null
   myPlayerId: string | null
   eventSeq: number
 
@@ -31,6 +30,11 @@ export interface BoardSlice {
   ) => void
   addStack: (playerId: string, stack: Stack) => void
   removeStack: (playerId: string, stackId: string) => void
+  removeStackWithResults: (
+    playerId: string,
+    stackId: string,
+    tokensBecomingIndividual: Set<string>
+  ) => void
   updateStack: (playerId: string, stackId: string, tokens: string[]) => void
   initializeFromGameState: (state: GameState, myPlayerId: string) => void
   resetBoard: () => void
@@ -40,7 +44,6 @@ const initialBoardState = {
   phase: 'not_started' as GamePhase,
   players: [] as Player[],
   boardSetup: null,
-  globalStacks: null,
   myPlayerId: null,
   eventSeq: 0,
 }
@@ -159,6 +162,30 @@ export const createBoardSlice: StateCreator<
       'removeStack'
     ),
 
+  removeStackWithResults: (playerId, stackId, tokensBecomingIndividual) =>
+    set(
+      (state) => {
+        const player = state.players.find((p) => p.player_id === playerId)
+        if (!player || !player.stacks) return
+
+        const stack = player.stacks.find((s) => s.stack_id === stackId)
+        if (stack) {
+          // Only mark tokens as not in stack if they truly become individual
+          // Tokens that will form new stacks should stay in_stack = true
+          stack.tokens.forEach((tokenId) => {
+            const token = player.tokens.find((t) => t.token_id === tokenId)
+            if (token && tokensBecomingIndividual.has(tokenId)) {
+              token.in_stack = false
+            }
+          })
+        }
+
+        player.stacks = player.stacks.filter((s) => s.stack_id !== stackId)
+      },
+      false,
+      'removeStackWithResults'
+    ),
+
   updateStack: (playerId, stackId, tokens) =>
     set(
       (state) => {
@@ -180,7 +207,6 @@ export const createBoardSlice: StateCreator<
         state.phase = gameState.phase
         state.players = gameState.players
         state.boardSetup = gameState.board_setup
-        state.globalStacks = gameState.stacks
         state.myPlayerId = myPlayerId
         state.eventSeq = gameState.event_seq
       },

@@ -14,7 +14,6 @@ export interface GameState {
   current_event: CurrentEventType
   board_setup: BoardSetup
   current_turn: Turn | null
-  stacks: Stack[] | null
   event_seq: number
 }
 
@@ -26,6 +25,7 @@ export interface Player {
   abs_starting_index: number
   tokens: Token[]
   stacks: Stack[] | null
+  next_stack_index: number
 }
 
 export type PlayerColor = 'red' | 'blue' | 'green' | 'yellow'
@@ -132,7 +132,6 @@ export type GameEventType =
   | 'token_captured'
   | 'stack_formed'
   | 'stack_dissolved'
-  | 'stack_split'
   | 'stack_moved'
   | 'awaiting_choice'
   | 'awaiting_capture_choice'
@@ -211,21 +210,20 @@ export interface StackFormedEvent extends BaseGameEvent {
   position: number
 }
 
+export interface DissolvedResult {
+  type: 'token' | 'stack'
+  id: string                    // token_id or stack_id
+  token_ids?: string[]          // Only present when type='stack'
+  position: number              // Progress value where this piece is located
+}
+
 export interface StackDissolvedEvent extends BaseGameEvent {
   event_type: 'stack_dissolved'
   player_id: string
   stack_id: string
   token_ids: string[]
   reason: 'captured' | 'split'
-}
-
-export interface StackSplitEvent extends BaseGameEvent {
-  event_type: 'stack_split'
-  player_id: string
-  original_stack_id: string
-  moving_token_ids: string[]
-  remaining_token_ids: string[]
-  new_stack_id: string | null
+  results: DissolvedResult[]    // What the stack dissolved into
 }
 
 export interface StackMovedEvent extends BaseGameEvent {
@@ -290,7 +288,6 @@ export type GameEvent =
   | TokenCapturedEvent
   | StackFormedEvent
   | StackDissolvedEvent
-  | StackSplitEvent
   | StackMovedEvent
   | TurnStartedEvent
   | TurnEndedEvent
@@ -312,7 +309,6 @@ export type AnimationType =
   | 'token_capture'
   | 'stack_form'
   | 'stack_dissolve'
-  | 'stack_split'
   | 'stack_move'
 
 export interface AnimationQueueItem {
@@ -328,9 +324,15 @@ export interface AnimationQueueItem {
 // ============================================================================
 
 export interface HighlightedToken {
-  tokenId: string
+  tokenId: string           // Entity ID (can be token_id or stack_id)
   playerId: string
   type: 'selectable' | 'selected' | 'enemy'
+  entityType: 'token' | 'stack'  // What kind of entity this is
+}
+
+export interface HighlightableEntity {
+  id: string
+  type: 'token' | 'stack'
 }
 
 export interface CaptureOption {

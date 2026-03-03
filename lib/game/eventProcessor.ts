@@ -13,7 +13,6 @@ import type {
   TokenCapturedEvent,
   StackFormedEvent,
   StackDissolvedEvent,
-  StackSplitEvent,
   StackMovedEvent,
   AwaitingChoiceEvent,
   AwaitingCaptureChoiceEvent,
@@ -23,9 +22,8 @@ import type {
   HighlightedToken,
 } from '@/types/game'
 import { ANIMATION_DURATIONS } from './constants'
-import { TRACK_LENGTH } from './boardGeometry'
 import { useGameStore, type GameStore } from '@/stores/gameStore'
-import { getHighlightableTokenIds } from './legalMoveParser'
+import { getHighlightableEntities } from './legalMoveParser'
 import { createLogEntry } from './eventLogUtils'
 
 type EventHandler<T extends GameEvent = GameEvent> = (
@@ -51,6 +49,45 @@ function createAnimationItem(
     event,
     duration,
   }
+}
+
+// Extract token IDs that will be animated from an event
+function getAnimatedTokenIds(event: GameEvent): string[] {
+  switch (event.event_type) {
+    case 'token_moved':
+      return [(event as TokenMovedEvent).token_id]
+    case 'token_exited_hell':
+      return [(event as TokenExitedHellEvent).token_id]
+    case 'token_reached_heaven':
+      return [(event as TokenReachedHeavenEvent).token_id]
+    case 'token_captured':
+      return [
+        (event as TokenCapturedEvent).capturing_token_id,
+        (event as TokenCapturedEvent).captured_token_id,
+      ]
+    case 'stack_formed':
+      return (event as StackFormedEvent).token_ids
+    case 'stack_dissolved':
+      return (event as StackDissolvedEvent).token_ids
+    case 'stack_moved':
+      return (event as StackMovedEvent).token_ids
+    default:
+      return []
+  }
+}
+
+// Helper to enqueue animation and pre-register token IDs
+function enqueueWithTokenRegistration(
+  store: GameStore,
+  type: AnimationType,
+  event: GameEvent,
+  duration: number
+): void {
+  const tokenIds = getAnimatedTokenIds(event)
+  if (tokenIds.length > 0) {
+    store.addAnimatingTokens(tokenIds)
+  }
+  store.enqueueAnimation(createAnimationItem(type, event, duration))
 }
 
 // Event handlers
@@ -160,11 +197,11 @@ const handlers: Record<string, EventHandler<any>> = {
     // Consume the roll used
     store.consumeRoll(event.roll_used)
 
-    // Queue animation
+    // Queue animation (pre-registers token to prevent position updates during animation)
     const duration =
       Math.abs(event.to_progress - event.from_progress) *
       ANIMATION_DURATIONS.TOKEN_MOVE_PER_SQUARE
-    store.enqueueAnimation(createAnimationItem('token_move', event, duration))
+    enqueueWithTokenRegistration(store, 'token_move', event, duration)
   },
 
   token_exited_hell: (event: TokenExitedHellEvent, store: GameStore) => {
@@ -178,12 +215,11 @@ const handlers: Record<string, EventHandler<any>> = {
     store.consumeRoll(event.roll_used)
 
     // Queue animation
-    store.enqueueAnimation(
-      createAnimationItem(
-        'token_exit_hell',
-        event,
-        ANIMATION_DURATIONS.TOKEN_EXIT_HELL
-      )
+    enqueueWithTokenRegistration(
+      store,
+      'token_exit_hell',
+      event,
+      ANIMATION_DURATIONS.TOKEN_EXIT_HELL
     )
   },
 
@@ -194,12 +230,11 @@ const handlers: Record<string, EventHandler<any>> = {
     })
 
     // Queue animation
-    store.enqueueAnimation(
-      createAnimationItem(
-        'token_reach_heaven',
-        event,
-        ANIMATION_DURATIONS.TOKEN_REACH_HEAVEN
-      )
+    enqueueWithTokenRegistration(
+      store,
+      'token_reach_heaven',
+      event,
+      ANIMATION_DURATIONS.TOKEN_REACH_HEAVEN
     )
   },
 
@@ -219,8 +254,11 @@ const handlers: Record<string, EventHandler<any>> = {
     }
 
     // Queue animation
-    store.enqueueAnimation(
-      createAnimationItem('token_capture', event, ANIMATION_DURATIONS.TOKEN_CAPTURE)
+    enqueueWithTokenRegistration(
+      store,
+      'token_capture',
+      event,
+      ANIMATION_DURATIONS.TOKEN_CAPTURE
     )
   },
 
@@ -232,53 +270,36 @@ const handlers: Record<string, EventHandler<any>> = {
     })
 
     // Queue animation
-    store.enqueueAnimation(
-      createAnimationItem('stack_form', event, ANIMATION_DURATIONS.STACK_FORM)
+    enqueueWithTokenRegistration(
+      store,
+      'stack_form',
+      event,
+      ANIMATION_DURATIONS.STACK_FORM
     )
   },
 
   stack_dissolved: (event: StackDissolvedEvent, store: GameStore) => {
-    // Remove stack
-    store.removeStack(event.player_id, event.stack_id)
+    // Use the results field to determine which tokens become individual vs stay in stacks
+    // This prevents visual flicker from briefly showing tokens before new stacks form
+    const tokensBecomingIndividual = new Set<string>()
 
-    // Queue animation
-    store.enqueueAnimation(
-      createAnimationItem(
-        'stack_dissolve',
-        event,
-        ANIMATION_DURATIONS.STACK_FORM
-      )
-    )
-  },
-
-  stack_split: (event: StackSplitEvent, store: GameStore) => {
-    // Update original stack
-    if (event.remaining_token_ids.length > 0) {
-      store.updateStack(
-        event.player_id,
-        event.original_stack_id,
-        event.remaining_token_ids
-      )
-    } else {
-      store.removeStack(event.player_id, event.original_stack_id)
+    if (event.results) {
+      for (const result of event.results) {
+        if (result.type === 'token') {
+          tokensBecomingIndividual.add(result.id)
+        }
+      }
     }
 
-    // Create new stack if specified
-    if (event.new_stack_id && event.moving_token_ids.length > 1) {
-      store.addStack(event.player_id, {
-        stack_id: event.new_stack_id,
-        tokens: event.moving_token_ids,
-      })
-    } else {
-      // Single token moving, mark as not in stack
-      event.moving_token_ids.forEach((tokenId) => {
-        store.updateToken(event.player_id, tokenId, { in_stack: false })
-      })
-    }
+    // Remove the stack but only mark appropriate tokens as not in stack
+    store.removeStackWithResults(event.player_id, event.stack_id, tokensBecomingIndividual)
 
     // Queue animation
-    store.enqueueAnimation(
-      createAnimationItem('stack_split', event, ANIMATION_DURATIONS.STACK_FORM)
+    enqueueWithTokenRegistration(
+      store,
+      'stack_dissolve',
+      event,
+      ANIMATION_DURATIONS.STACK_FORM
     )
   },
 
@@ -301,7 +322,7 @@ const handlers: Record<string, EventHandler<any>> = {
     const duration =
       Math.abs(event.to_progress - event.from_progress) *
       ANIMATION_DURATIONS.TOKEN_MOVE_PER_SQUARE
-    store.enqueueAnimation(createAnimationItem('stack_move', event, duration))
+    enqueueWithTokenRegistration(store, 'stack_move', event, duration)
   },
 
   awaiting_choice: (event: AwaitingChoiceEvent, store: GameStore) => {
@@ -312,20 +333,16 @@ const handlers: Record<string, EventHandler<any>> = {
     // Highlight legal moves if it's my turn
     const isMyTurn = event.player_id === store.myPlayerId
     if (isMyTurn) {
-      // Use the parser to get highlightable token IDs
-      // This handles both direct tokens and stack representative tokens
-      const highlightableTokenIds = getHighlightableTokenIds(
-        event.legal_moves,
-        store.players
-      )
+      // Use the parser to get highlightable entities (tokens and stacks)
+      const entities = getHighlightableEntities(event.legal_moves)
 
-      const highlighted: HighlightedToken[] = highlightableTokenIds.map((tokenId) => ({
-        tokenId,
+      const highlighted: HighlightedToken[] = entities.map((entity) => ({
+        tokenId: entity.id,           // Can be token_id OR stack_id
         playerId: event.player_id,
         type: 'selectable' as const,
+        entityType: entity.type,      // 'token' or 'stack'
       }))
       store.setHighlightedTokens(highlighted)
-      // Note: Modal is no longer shown - direct token selection is used instead
     }
   },
 
@@ -394,7 +411,6 @@ export function applyGameState(
     current_event: 'player_roll' | 'player_choice' | 'capture_choice'
     board_setup: any
     current_turn: any
-    stacks: any[] | null
     event_seq: number
   },
   myPlayerId: string
@@ -408,7 +424,6 @@ export function applyGameState(
       current_event: state.current_event,
       board_setup: state.board_setup,
       current_turn: state.current_turn,
-      stacks: state.stacks,
       event_seq: state.event_seq,
     },
     myPlayerId

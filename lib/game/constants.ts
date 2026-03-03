@@ -9,6 +9,8 @@ export const ANIMATION_DURATIONS = {
   TOKEN_REACH_HEAVEN: 800,
   TURN_TRANSITION: 300,
   PENALTY_DISPLAY: 2000,
+  // Buffer between sequential animations to prevent visual overlap
+  ANIMATION_BUFFER: 150,
 } as const
 
 // Fast forward multiplier (for reconnection)

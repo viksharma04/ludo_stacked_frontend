@@ -17,7 +17,6 @@ import type {
   TokenCapturedEvent,
   StackFormedEvent,
   StackDissolvedEvent,
-  StackSplitEvent,
   StackMovedEvent,
   AwaitingChoiceEvent,
   AwaitingCaptureChoiceEvent,
@@ -181,20 +180,18 @@ function createLogData(
     case 'stack_dissolved': {
       const e = event as StackDissolvedEvent
       const playerName = getPlayerName(e.player_id, players)
-      return {
-        message: `${playerName}'s stack dissolved`,
-        severity: 'warning',
-        playerId: e.player_id,
-      }
-    }
-
-    case 'stack_split': {
-      const e = event as StackSplitEvent
-      const playerName = getPlayerName(e.player_id, players)
-      return {
-        message: `${playerName} split their stack`,
-        severity: 'info',
-        playerId: e.player_id,
+      if (e.reason === 'captured') {
+        return {
+          message: `${playerName}'s stack was captured`,
+          severity: 'danger',
+          playerId: e.player_id,
+        }
+      } else {
+        return {
+          message: `${playerName} split their stack`,
+          severity: 'info',
+          playerId: e.player_id,
+        }
       }
     }
 
