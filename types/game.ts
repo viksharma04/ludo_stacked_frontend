@@ -1,4 +1,4 @@
-// Game types based on frontend_game_integration.md spec
+// Game types based on specs/frontend_integration_guide.md
 
 // ============================================================================
 // Core Game State Types
@@ -6,7 +6,7 @@
 
 export type GamePhase = 'not_started' | 'in_progress' | 'finished'
 export type CurrentEventType = 'player_roll' | 'player_choice' | 'capture_choice'
-export type TokenState = 'hell' | 'road' | 'homestretch' | 'heaven'
+export type StackState = 'hell' | 'road' | 'homestretch' | 'heaven'
 
 export interface GameState {
   phase: GamePhase
@@ -23,23 +23,22 @@ export interface Player {
   color: PlayerColor
   turn_order: number
   abs_starting_index: number
-  tokens: Token[]
-  stacks: Stack[] | null
-  next_stack_index: number
+  stacks: Stack[]
 }
 
 export type PlayerColor = 'red' | 'blue' | 'green' | 'yellow'
 
-export interface Token {
-  token_id: string
-  state: TokenState
-  progress: number
-  in_stack: boolean
+export interface Stack {
+  stack_id: string       // "stack_1", "stack_1_2", etc.
+  state: StackState      // "hell" | "road" | "homestretch" | "heaven"
+  height: number         // 1-4
+  progress: number       // position along player's track
 }
 
-export interface Stack {
-  stack_id: string
-  tokens: string[]
+export interface PendingCapture {
+  moving_stack_id: string
+  position: number
+  capturable_targets: string[]  // "{player_id}:{stack_id}" format
 }
 
 export interface Turn {
@@ -49,6 +48,7 @@ export interface Turn {
   legal_moves: string[]
   current_turn_order: number
   extra_rolls: number
+  pending_capture: PendingCapture | null
 }
 
 export interface BoardSetup {
@@ -73,13 +73,13 @@ export type GameActionType =
   | 'roll'
   | 'move'
   | 'capture_choice'
-  | 'start_game'
 
 export interface GameActionPayload {
   action_type: GameActionType
-  value?: number // For roll action
-  token_or_stack_id?: string // For move action
-  choice?: 'stack' | 'capture' | string // For capture_choice action
+  value?: number          // For roll (1-6)
+  stack_id?: string       // For move
+  roll_value?: number     // For move — which roll to consume
+  choice?: string         // For capture_choice — "{player_id}:{stack_id}"
 }
 
 export interface WSGameActionMessage {
@@ -97,7 +97,9 @@ export interface WSGameEventsMessage {
 
 export interface WSGameStateMessage {
   type: 'game_state'
-  payload: GameState
+  payload: {
+    state: GameState
+  }
 }
 
 export interface WSGameErrorMessage {
@@ -110,9 +112,21 @@ export interface WSGameErrorMessage {
 
 export type GameErrorCode =
   | 'NOT_YOUR_TURN'
-  | 'INVALID_MOVE'
   | 'INVALID_ACTION'
+  | 'ILLEGAL_MOVE'
+  | 'INVALID_ROLL'
   | 'GAME_NOT_FOUND'
+  | 'GAME_ALREADY_STARTED'
+  | 'GAME_NOT_STARTED'
+  | 'GAME_FINISHED'
+  | 'NOT_HOST'
+  | 'PLAYERS_NOT_READY'
+  | 'NOT_IN_ROOM'
+  | 'INVALID_CAPTURE_TARGET'
+  | 'NO_PENDING_CAPTURE'
+  | 'STACK_NOT_FOUND'
+  | 'INVALID_GAME_STATE'
+  | 'VALIDATION_ERROR'
 
 // ============================================================================
 // Game Events
@@ -126,17 +140,14 @@ export type GameEventType =
   | 'roll_granted'
   | 'dice_rolled'
   | 'three_sixes_penalty'
-  | 'token_moved'
-  | 'token_exited_hell'
-  | 'token_reached_heaven'
-  | 'token_captured'
-  | 'stack_formed'
-  | 'stack_dissolved'
   | 'stack_moved'
+  | 'stack_exited_hell'
+  | 'stack_reached_heaven'
+  | 'stack_captured'
+  | 'stack_update'
   | 'awaiting_choice'
   | 'awaiting_capture_choice'
 
-// Base event interface
 export interface BaseGameEvent {
   event_type: GameEventType
   seq: number
@@ -165,76 +176,48 @@ export interface ThreeSixesPenaltyEvent extends BaseGameEvent {
   rolls: [6, 6, 6]
 }
 
-// Move Events
-export interface TokenMovedEvent extends BaseGameEvent {
-  event_type: 'token_moved'
-  player_id: string
-  token_id: string
-  from_state: TokenState
-  to_state: TokenState
-  from_progress: number
-  to_progress: number
-  roll_used: number
-}
-
-export interface TokenExitedHellEvent extends BaseGameEvent {
-  event_type: 'token_exited_hell'
-  player_id: string
-  token_id: string
-  roll_used: number
-}
-
-export interface TokenReachedHeavenEvent extends BaseGameEvent {
-  event_type: 'token_reached_heaven'
-  player_id: string
-  token_id: string
-}
-
-// Capture Events
-export interface TokenCapturedEvent extends BaseGameEvent {
-  event_type: 'token_captured'
-  capturing_player_id: string
-  capturing_token_id: string
-  captured_player_id: string
-  captured_token_id: string
-  position: number
-  grants_extra_roll: boolean
-}
-
-// Stack Events
-export interface StackFormedEvent extends BaseGameEvent {
-  event_type: 'stack_formed'
-  player_id: string
-  stack_id: string
-  token_ids: string[]
-  position: number
-}
-
-export interface DissolvedResult {
-  type: 'token' | 'stack'
-  id: string                    // token_id or stack_id
-  token_ids?: string[]          // Only present when type='stack'
-  position: number              // Progress value where this piece is located
-}
-
-export interface StackDissolvedEvent extends BaseGameEvent {
-  event_type: 'stack_dissolved'
-  player_id: string
-  stack_id: string
-  token_ids: string[]
-  reason: 'captured' | 'split'
-  results: DissolvedResult[]    // What the stack dissolved into
-}
-
+// Stack Movement Events
 export interface StackMovedEvent extends BaseGameEvent {
   event_type: 'stack_moved'
   player_id: string
   stack_id: string
-  token_ids: string[]
+  from_state: StackState
+  to_state: StackState
   from_progress: number
   to_progress: number
   roll_used: number
-  effective_roll: number
+}
+
+export interface StackExitedHellEvent extends BaseGameEvent {
+  event_type: 'stack_exited_hell'
+  player_id: string
+  stack_id: string
+  roll_used: number
+}
+
+export interface StackReachedHeavenEvent extends BaseGameEvent {
+  event_type: 'stack_reached_heaven'
+  player_id: string
+  stack_id: string
+}
+
+// Capture Events
+export interface StackCapturedEvent extends BaseGameEvent {
+  event_type: 'stack_captured'
+  capturing_player_id: string
+  capturing_stack_id: string
+  captured_player_id: string
+  captured_stack_id: string
+  position: number
+  grants_extra_roll: boolean
+}
+
+// Stack Mutation Event (merge, split, capture decomposition)
+export interface StackUpdateEvent extends BaseGameEvent {
+  event_type: 'stack_update'
+  player_id: string
+  add_stacks: Stack[]
+  remove_stacks: Stack[]
 }
 
 // Turn Events
@@ -252,17 +235,26 @@ export interface TurnEndedEvent extends BaseGameEvent {
 }
 
 // Awaiting Events
+export interface LegalMoveGroup {
+  stack_id: string
+  moves: string[]
+}
+
+export interface RollMoveGroup {
+  roll: number
+  move_groups: LegalMoveGroup[]
+}
+
 export interface AwaitingChoiceEvent extends BaseGameEvent {
   event_type: 'awaiting_choice'
   player_id: string
-  legal_moves: string[]
-  roll_to_allocate: number
+  available_moves: RollMoveGroup[]
 }
 
 export interface AwaitingCaptureChoiceEvent extends BaseGameEvent {
   event_type: 'awaiting_capture_choice'
   player_id: string
-  options: string[]
+  options: string[]  // "{player_id}:{stack_id}" format
 }
 
 // Game Lifecycle Events
@@ -282,13 +274,11 @@ export interface GameEndedEvent extends BaseGameEvent {
 export type GameEvent =
   | DiceRolledEvent
   | ThreeSixesPenaltyEvent
-  | TokenMovedEvent
-  | TokenExitedHellEvent
-  | TokenReachedHeavenEvent
-  | TokenCapturedEvent
-  | StackFormedEvent
-  | StackDissolvedEvent
   | StackMovedEvent
+  | StackExitedHellEvent
+  | StackReachedHeavenEvent
+  | StackCapturedEvent
+  | StackUpdateEvent
   | TurnStartedEvent
   | TurnEndedEvent
   | RollGrantedEvent
@@ -303,13 +293,11 @@ export type GameEvent =
 
 export type AnimationType =
   | 'dice_roll'
-  | 'token_move'
-  | 'token_exit_hell'
-  | 'token_reach_heaven'
-  | 'token_capture'
-  | 'stack_form'
-  | 'stack_dissolve'
   | 'stack_move'
+  | 'stack_exit_hell'
+  | 'stack_reach_heaven'
+  | 'stack_capture'
+  | 'stack_update'
 
 export interface AnimationQueueItem {
   id: string
@@ -323,22 +311,17 @@ export interface AnimationQueueItem {
 // UI State Types
 // ============================================================================
 
-export interface HighlightedToken {
-  tokenId: string           // Entity ID (can be token_id or stack_id)
+export interface HighlightedStack {
+  stackId: string
   playerId: string
   type: 'selectable' | 'selected' | 'enemy'
-  entityType: 'token' | 'stack'  // What kind of entity this is
-}
-
-export interface HighlightableEntity {
-  id: string
-  type: 'token' | 'stack'
 }
 
 export interface CaptureOption {
-  id: string
-  label: string
-  type: 'stack' | 'capture' | 'target'
+  target: string          // Raw "{player_id}:{stack_id}" string
+  playerColor: PlayerColor
+  stackId: string
+  stackHeight: number
 }
 
 // ============================================================================
@@ -354,17 +337,6 @@ export interface BoardPosition {
   point: Point
   rotation?: number
   scale?: number
-}
-
-// Token position on the board
-export interface TokenPosition {
-  tokenId: string
-  playerId: string
-  state: TokenState
-  progress: number
-  boardPosition: BoardPosition
-  inStack: boolean
-  stackId?: string
 }
 
 // Player color configuration
@@ -400,23 +372,6 @@ export const PLAYER_COLORS: Record<PlayerColor, PlayerColorConfig> = {
     home: 0xfff9c4,
     homestretch: 0xfff59d,
   },
-}
-
-// ============================================================================
-// Parsed Legal Move Types
-// ============================================================================
-
-export interface ParsedLegalMove {
-  rawId: string           // Original ID from server
-  type: 'token' | 'stack'
-  entityId: string        // Token ID or Stack ID (without :count)
-  stackSplitCount?: number
-}
-
-export interface StackSplitSelection {
-  stackId: string
-  options: ParsedLegalMove[]
-  position: { x: number; y: number }
 }
 
 // ============================================================================
