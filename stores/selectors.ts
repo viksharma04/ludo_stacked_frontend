@@ -1,5 +1,5 @@
 import { useGameStore, type GameStore } from './gameStore'
-import type { Player, Token, Stack, PlayerColor } from '@/types/game'
+import type { Player, Stack, PlayerColor } from '@/types/game'
 
 // ============================================================================
 // Basic Selectors
@@ -11,7 +11,8 @@ export const useBoardSetup = () => useGameStore((state) => state.boardSetup)
 export const useMyPlayerId = () => useGameStore((state) => state.myPlayerId)
 export const useCurrentTurn = () => useGameStore((state) => state.currentTurn)
 export const useCurrentEvent = () => useGameStore((state) => state.currentEvent)
-export const useLegalMoves = () => useGameStore((state) => state.legalMoves)
+export const useAvailableMoves = () => useGameStore((state) => state.availableMoves)
+export const useSelectedRoll = () => useGameStore((state) => state.selectedRoll)
 export const useDiceValue = () => useGameStore((state) => state.diceValue)
 export const useDiceRolling = () => useGameStore((state) => state.diceRolling)
 export const useRollReason = () => useGameStore((state) => state.rollReason)
@@ -61,23 +62,6 @@ export const usePlayerColor = (playerId: string): PlayerColor | null =>
     return player?.color ?? null
   })
 
-// Get all tokens flat list with player info
-export interface TokenWithPlayer extends Token {
-  playerId: string
-  playerColor: PlayerColor
-}
-
-// Helper function for computing all tokens (use with useMemo in components)
-export function computeAllTokens(players: Player[]): TokenWithPlayer[] {
-  return players.flatMap((player) =>
-    player.tokens.map((token) => ({
-      ...token,
-      playerId: player.player_id,
-      playerColor: player.color,
-    }))
-  )
-}
-
 // Get all stacks flat list with player info
 export interface StackWithPlayer extends Stack {
   playerId: string
@@ -87,7 +71,7 @@ export interface StackWithPlayer extends Stack {
 // Helper function for computing all stacks (use with useMemo in components)
 export function computeAllStacks(players: Player[]): StackWithPlayer[] {
   return players.flatMap((player) =>
-    (player.stacks ?? []).map((stack) => ({
+    player.stacks.map((stack) => ({
       ...stack,
       playerId: player.player_id,
       playerColor: player.color,
@@ -95,22 +79,18 @@ export function computeAllStacks(players: Player[]): StackWithPlayer[] {
   )
 }
 
-// Get highlighted tokens
+// Get highlighted tokens (still named highlightedTokens in store for now)
 export const useHighlightedTokens = () =>
   useGameStore((state) => state.highlightedTokens)
 
-// Get selected token ID
-export const useSelectedTokenId = () =>
-  useGameStore((state) => state.selectedTokenId)
+// Get selected stack ID
+export const useSelectedStackId = () =>
+  useGameStore((state) => state.selectedStackId)
 
-// Check if a specific token is selectable (in legal moves)
-export const useIsTokenSelectable = (tokenId: string) =>
-  useGameStore((state) => state.legalMoves.includes(tokenId))
-
-// Check if a token/stack is highlighted
-export const useIsHighlighted = (tokenId: string) =>
+// Check if a specific stack is highlighted
+export const useIsHighlighted = (stackId: string) =>
   useGameStore((state) =>
-    state.highlightedTokens.some((t) => t.tokenId === tokenId)
+    state.highlightedTokens.some((t) => t.stackId === stackId)
   )
 
 // Get rolls to allocate - returns stable empty array when no turn
@@ -132,7 +112,7 @@ export const useNeedsMoveSelection = () =>
   useGameStore((state) => {
     if (!state.currentTurn || !state.myPlayerId) return false
     if (state.currentTurn.player_id !== state.myPlayerId) return false
-    return state.currentEvent === 'player_choice' && state.legalMoves.length > 0
+    return state.currentEvent === 'player_choice' && state.availableMoves.length > 0
   })
 
 // Check if need to make capture choice
@@ -166,10 +146,6 @@ export const useShowPenaltyAnimation = () =>
 export const usePenaltyPlayerId = () =>
   useGameStore((state) => state.penaltyPlayerId)
 
-// Stack split selection
-export const useStackSplitSelection = () =>
-  useGameStore((state) => state.stackSplitSelection)
-
 // Turn transition
 export const useTurnTransition = () =>
   useGameStore((state) => state.turnTransition)
@@ -177,27 +153,13 @@ export const useTurnTransition = () =>
 // Event log
 export const useLogEntries = () => useGameStore((state) => state.logEntries)
 
-// Get token by ID
-export const useTokenById = (
-  tokenId: string
-): (Token & { playerId: string }) | null =>
-  useGameStore((state) => {
-    for (const player of state.players) {
-      const token = player.tokens.find((t) => t.token_id === tokenId)
-      if (token) {
-        return { ...token, playerId: player.player_id }
-      }
-    }
-    return null
-  })
-
 // Get stack by ID
 export const useStackById = (
   stackId: string
 ): (Stack & { playerId: string }) | null =>
   useGameStore((state) => {
     for (const player of state.players) {
-      const stack = player.stacks?.find((s) => s.stack_id === stackId)
+      const stack = player.stacks.find((s) => s.stack_id === stackId)
       if (stack) {
         return { ...stack, playerId: player.player_id }
       }
@@ -205,7 +167,7 @@ export const useStackById = (
     return null
   })
 
-// Count tokens in heaven per player - use usePlayers() and compute in component with useMemo
+// Count stacks in heaven per player - use usePlayers() and compute in component with useMemo
 export interface TokensInHeavenInfo {
   playerId: string
   color: PlayerColor
@@ -227,21 +189,23 @@ export function computeTokensInHeaven(players: Player[]): TokensInHeavenInfo[] {
   return players.map((player) => ({
     playerId: player.player_id,
     color: player.color,
-    count: player.tokens.filter((t) => t.state === 'heaven').length,
+    count: player.stacks.filter((s) => s.state === 'heaven').length,
   }))
 }
 
 export function computePlayerProgress(players: Player[]): PlayerProgressInfo[] {
-  return players.map((player) => ({
-    playerId: player.player_id,
-    name: player.name,
-    color: player.color,
-    heavenCount: player.tokens.filter((t) => t.state === 'heaven').length,
-    totalTokens: player.tokens.length,
-    progress:
-      player.tokens.length > 0
-        ? player.tokens.filter((t) => t.state === 'heaven').length /
-          player.tokens.length
-        : 0,
-  }))
+  return players.map((player) => {
+    const totalPieces = player.stacks.reduce((sum, s) => sum + s.height, 0)
+    const heavenPieces = player.stacks
+      .filter((s) => s.state === 'heaven')
+      .reduce((sum, s) => sum + s.height, 0)
+    return {
+      playerId: player.player_id,
+      name: player.name,
+      color: player.color,
+      heavenCount: heavenPieces,
+      totalTokens: totalPieces,
+      progress: totalPieces > 0 ? heavenPieces / totalPieces : 0,
+    }
+  })
 }
