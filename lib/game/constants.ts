@@ -1,12 +1,11 @@
 // Animation durations in milliseconds
 export const ANIMATION_DURATIONS = {
   DICE_ROLL: 250,
-  TOKEN_MOVE_PER_SQUARE: 300,
-  TOKEN_CAPTURE: 500,
-  STACK_FORM: 400,
-  STACK_DISSOLVE: 400,
-  TOKEN_EXIT_HELL: 500,
-  TOKEN_REACH_HEAVEN: 800,
+  STACK_MOVE_PER_SQUARE: 300,
+  STACK_CAPTURE: 500,
+  STACK_UPDATE: 400,
+  STACK_EXIT_HELL: 500,
+  STACK_REACH_HEAVEN: 800,
   TURN_TRANSITION: 300,
   PENALTY_DISPLAY: 2000,
   // Buffer between sequential animations to prevent visual overlap
@@ -70,5 +69,4 @@ export const ACTION_TYPES = {
   ROLL: 'roll',
   MOVE: 'move',
   CAPTURE_CHOICE: 'capture_choice',
-  START_GAME: 'start_game',
 } as const
