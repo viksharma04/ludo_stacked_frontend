@@ -220,7 +220,7 @@ export function DicePanel({ onRoll, className = '' }: DicePanelProps) {
         {/* Move selection indicator */}
         {isMyTurn && currentEvent === 'player_choice' && (
           <p className="text-sm text-accent font-medium text-center">
-            Select a token to move
+            Select a piece to move
           </p>
         )}
       </div>

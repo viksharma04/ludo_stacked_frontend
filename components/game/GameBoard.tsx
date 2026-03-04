@@ -6,6 +6,7 @@ import { GameCanvas } from './GameCanvas'
 import { GameHUD } from './GameHUD'
 import { DicePanel } from './DicePanel'
 import { EventLog } from './EventLog'
+import { MoveChoiceModal } from './MoveChoiceModal'
 import { CaptureChoiceModal } from './CaptureChoiceModal'
 import { VictoryScreen } from './VictoryScreen'
 import { TurnTransitionToast } from './TurnTransitionToast'
@@ -137,6 +138,7 @@ export function GameBoard({
       </div>
 
       {/* Modals */}
+      <MoveChoiceModal onSelectMove={selectMove} />
       <CaptureChoiceModal onSelectChoice={selectCaptureChoice} />
       <VictoryScreen onReturnToLobby={handleReturnToLobby} />
 

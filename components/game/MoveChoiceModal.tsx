@@ -2,27 +2,30 @@
 
 import {
   useShowMoveChoiceModal,
-  useLegalMoves,
-  useRollsToAllocate,
+  useAvailableMoves,
+  useSelectedStackId,
 } from '@/stores/selectors'
 import { useGameStore } from '@/stores/gameStore'
+import { getRollsForStack } from '@/lib/game/legalMoveParser'
 
 interface MoveChoiceModalProps {
-  onSelectMove: (tokenId: string) => void
+  onSelectMove: (stackId: string, rollValue: number) => void
 }
 
 export function MoveChoiceModal({ onSelectMove }: MoveChoiceModalProps) {
   const showModal = useShowMoveChoiceModal()
-  const legalMoves = useLegalMoves()
-  const rollsToAllocate = useRollsToAllocate()
+  const availableMoves = useAvailableMoves()
+  const selectedStackId = useSelectedStackId()
 
   const handleClose = () => {
-    useGameStore.getState().setShowMoveChoiceModal(false)
+    const store = useGameStore.getState()
+    store.setShowMoveChoiceModal(false)
+    store.setSelectedStackId(null)
   }
 
-  if (!showModal) return null
+  if (!showModal || !selectedStackId) return null
 
-  const currentRoll = rollsToAllocate[0]
+  const rolls = getRollsForStack(selectedStackId, availableMoves)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -35,41 +38,29 @@ export function MoveChoiceModal({ onSelectMove }: MoveChoiceModalProps) {
       {/* Modal content */}
       <div className="relative bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full max-w-md mx-auto p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-          Select a Token to Move
+          Choose a Roll to Use
         </h3>
 
-        {currentRoll && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Roll: <span className="font-bold text-accent">{currentRoll}</span>
-          </p>
-        )}
-
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Tap a highlighted token on the board to move it, or choose from the
-          list below:
+          Multiple rolls available. Select which roll to use for this move:
         </p>
 
-        {/* Token list */}
+        {/* Roll options */}
         <div className="space-y-2 max-h-48 overflow-y-auto">
-          {legalMoves.map((moveId) => {
-            // Parse token ID to show meaningful name
-            const isStack = moveId.includes('stack')
-            const displayName = isStack
-              ? `Stack ${moveId.split('_').pop()}`
-              : `Token ${moveId.split('_').pop()}`
-
-            return (
-              <button
-                key={moveId}
-                onClick={() => onSelectMove(moveId)}
-                className="w-full px-4 py-3 text-left rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <span className="font-medium text-gray-900 dark:text-white">
-                  {displayName}
-                </span>
-              </button>
-            )
-          })}
+          {rolls.map((roll) => (
+            <button
+              key={roll}
+              onClick={() => {
+                onSelectMove(selectedStackId, roll)
+                handleClose()
+              }}
+              className="w-full px-4 py-3 text-left rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <span className="font-medium text-gray-900 dark:text-white">
+                Move {roll} space{roll !== 1 ? 's' : ''}
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* Close button */}
