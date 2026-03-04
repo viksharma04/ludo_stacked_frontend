@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PixiApp } from '@/lib/pixi/PixiApp'
 import { AnimationController } from '@/lib/pixi/AnimationController'
 import { useGameStore } from '@/stores/gameStore'
-import type { BoardSetup, Player } from '@/types/game'
 
 interface UsePixiAppOptions {
   containerRef: React.RefObject<HTMLDivElement | null>

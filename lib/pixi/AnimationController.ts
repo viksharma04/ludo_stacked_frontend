@@ -67,7 +67,7 @@ export class AnimationController {
         case 'roll_granted':
           break
         default:
-          console.warn(`Unknown event type for animation: ${event.event_type}`)
+          console.warn(`Unknown event type for animation: ${(event as GameEvent).event_type}`)
       }
     } finally {
       this.isPlaying = false

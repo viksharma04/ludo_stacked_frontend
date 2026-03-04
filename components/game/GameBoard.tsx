@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { GameCanvas } from './GameCanvas'
 import { GameHUD } from './GameHUD'
@@ -12,10 +12,9 @@ import { VictoryScreen } from './VictoryScreen'
 import { TurnTransitionToast } from './TurnTransitionToast'
 import { useGameWebSocket } from '@/hooks/useGameWebSocket'
 import { useGameStore } from '@/stores/gameStore'
-import { usePhase, useIsAnimating, useShowPenaltyAnimation, usePenaltyPlayerId, usePlayerById, useAvailableMoves } from '@/stores/selectors'
+import { useIsAnimating, useShowPenaltyAnimation, usePenaltyPlayerId, usePlayerById, useAvailableMoves } from '@/stores/selectors'
 import type { PixiApp } from '@/lib/pixi/PixiApp'
 import type { AnimationController } from '@/lib/pixi/AnimationController'
-import type { GameEvent } from '@/types/game'
 import { getRollsForStack } from '@/lib/game/legalMoveParser'
 
 interface GameBoardProps {
@@ -30,7 +29,6 @@ export function GameBoard({
   onReturnToLobby,
 }: GameBoardProps) {
   const router = useRouter()
-  const phase = usePhase()
   const isAnimating = useIsAnimating()
   const showPenaltyAnimation = useShowPenaltyAnimation()
   const penaltyPlayerId = usePenaltyPlayerId()
@@ -42,11 +40,9 @@ export function GameBoard({
 
   // Game WebSocket hook
   const {
-    handleGameMessage,
     rollDice,
     selectMove,
     selectCaptureChoice,
-    startGame,
   } = useGameWebSocket({
     sendMessage,
     myPlayerId,

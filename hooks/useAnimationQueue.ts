@@ -30,10 +30,10 @@ function getAnimatedStackIds(event: GameEvent): string[] {
         (event as { captured_stack_id: string }).captured_stack_id,
       ]
     case 'stack_update': {
-      const e = event as { add_stacks?: { stack_id: string }[]; remove_stacks?: string[] }
+      const e = event as { add_stacks?: { stack_id: string }[]; remove_stacks?: { stack_id: string }[] }
       const ids: string[] = []
       if (e.add_stacks) ids.push(...e.add_stacks.map(s => s.stack_id))
-      if (e.remove_stacks) ids.push(...e.remove_stacks)
+      if (e.remove_stacks) ids.push(...e.remove_stacks.map(s => s.stack_id))
       return ids
     }
     default:

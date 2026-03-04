@@ -1,4 +1,4 @@
-import type { Point, BoardSetup, PlayerColor, TokenState } from '@/types/game'
+import type { Point, BoardSetup, PlayerColor, StackState } from '@/types/game'
 
 const GRID_SIZE = 15
 const CELL_SIZE = 1 // Normalized, will be scaled
@@ -269,7 +269,7 @@ export class BoardGeometry {
   getTokenPosition(
     playerColor: PlayerColor,
     playerStartingIndex: number,
-    tokenState: TokenState,
+    tokenState: StackState,
     progress: number,
     tokenIndex: number = 0
   ): Point {
@@ -345,8 +345,8 @@ export class BoardGeometry {
     playerStartingIndex: number,
     fromProgress: number,
     toProgress: number,
-    fromState: TokenState,
-    toState: TokenState
+    fromState: StackState,
+    toState: StackState
   ): Point[] {
     const path: Point[] = []
 
@@ -366,7 +366,7 @@ export class BoardGeometry {
 
     // Regular move on track or homestretch
     for (let p = fromProgress + 1; p <= toProgress; p++) {
-      const state: TokenState =
+      const state: StackState =
         this.boardSetup && p > this.boardSetup.squares_to_homestretch
           ? 'homestretch'
           : 'road'

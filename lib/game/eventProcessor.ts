@@ -18,6 +18,7 @@ import type {
   AnimationType,
   CaptureOption,
   HighlightedStack,
+  GameState,
 } from '@/types/game'
 import { ANIMATION_DURATIONS } from './constants'
 import { useGameStore, type GameStore } from '@/stores/gameStore'
@@ -89,6 +90,7 @@ function enqueueWithStackRegistration(
 }
 
 // Event handlers
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const handlers: Record<string, EventHandler<any>> = {
   game_started: (event: GameStartedEvent, store: GameStore) => {
     store.setPhase('in_progress')
@@ -298,14 +300,7 @@ export function processEvents(events: GameEvent[]): void {
  * Apply a full game state (for reconnection)
  */
 export function applyGameState(
-  state: {
-    phase: 'not_started' | 'in_progress' | 'finished'
-    players: any[]
-    current_event: 'player_roll' | 'player_choice' | 'capture_choice'
-    board_setup: any
-    current_turn: any
-    event_seq: number
-  },
+  state: GameState,
   myPlayerId: string
 ): void {
   const store = useGameStore.getState()

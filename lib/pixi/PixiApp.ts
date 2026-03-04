@@ -1,8 +1,8 @@
-import { Application, Container } from 'pixi.js'
+import { Application } from 'pixi.js'
 import { BoardRenderer } from './BoardRenderer'
 import { TokenRenderer } from './TokenRenderer'
 import { BoardGeometry, createBoardGeometry } from '@/lib/game/boardGeometry'
-import type { BoardSetup, Player, PlayerColor } from '@/types/game'
+import type { BoardSetup, Player } from '@/types/game'
 import { useGameStore } from '@/stores/gameStore'
 
 export class PixiApp {
