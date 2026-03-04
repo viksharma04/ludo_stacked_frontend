@@ -1,6 +1,5 @@
 import gsap from 'gsap'
 import type { PixiApp } from './PixiApp'
-import { TRACK_LENGTH, type BoardGeometry } from '@/lib/game/boardGeometry'
 import type {
   GameEvent,
   StackMovedEvent,
