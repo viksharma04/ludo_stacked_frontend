@@ -7,23 +7,20 @@ import type {
   RollGrantedEvent,
   DiceRolledEvent,
   ThreeSixesPenaltyEvent,
-  TokenMovedEvent,
-  TokenExitedHellEvent,
-  TokenReachedHeavenEvent,
-  TokenCapturedEvent,
-  StackFormedEvent,
-  StackDissolvedEvent,
   StackMovedEvent,
+  StackExitedHellEvent,
+  StackReachedHeavenEvent,
+  StackCapturedEvent,
+  StackUpdateEvent,
   AwaitingChoiceEvent,
   AwaitingCaptureChoiceEvent,
   AnimationQueueItem,
   AnimationType,
   CaptureOption,
-  HighlightedToken,
+  HighlightedStack,
 } from '@/types/game'
 import { ANIMATION_DURATIONS } from './constants'
 import { useGameStore, type GameStore } from '@/stores/gameStore'
-import { getHighlightableEntities } from './legalMoveParser'
 import { createLogEntry } from './eventLogUtils'
 
 type EventHandler<T extends GameEvent = GameEvent> = (
@@ -51,41 +48,42 @@ function createAnimationItem(
   }
 }
 
-// Extract token IDs that will be animated from an event
-function getAnimatedTokenIds(event: GameEvent): string[] {
+// Extract stack IDs that will be animated from an event
+function getAnimatedStackIds(event: GameEvent): string[] {
   switch (event.event_type) {
-    case 'token_moved':
-      return [(event as TokenMovedEvent).token_id]
-    case 'token_exited_hell':
-      return [(event as TokenExitedHellEvent).token_id]
-    case 'token_reached_heaven':
-      return [(event as TokenReachedHeavenEvent).token_id]
-    case 'token_captured':
-      return [
-        (event as TokenCapturedEvent).capturing_token_id,
-        (event as TokenCapturedEvent).captured_token_id,
-      ]
-    case 'stack_formed':
-      return (event as StackFormedEvent).token_ids
-    case 'stack_dissolved':
-      return (event as StackDissolvedEvent).token_ids
     case 'stack_moved':
-      return (event as StackMovedEvent).token_ids
+      return [(event as StackMovedEvent).stack_id]
+    case 'stack_exited_hell':
+      return [(event as StackExitedHellEvent).stack_id]
+    case 'stack_reached_heaven':
+      return [(event as StackReachedHeavenEvent).stack_id]
+    case 'stack_captured':
+      return [
+        (event as StackCapturedEvent).capturing_stack_id,
+        (event as StackCapturedEvent).captured_stack_id,
+      ]
+    case 'stack_update': {
+      const e = event as StackUpdateEvent
+      return [
+        ...e.add_stacks.map(s => s.stack_id),
+        ...e.remove_stacks.map(s => s.stack_id),
+      ]
+    }
     default:
       return []
   }
 }
 
-// Helper to enqueue animation and pre-register token IDs
-function enqueueWithTokenRegistration(
+// Helper to enqueue animation and pre-register stack IDs
+function enqueueWithStackRegistration(
   store: GameStore,
   type: AnimationType,
   event: GameEvent,
   duration: number
 ): void {
-  const tokenIds = getAnimatedTokenIds(event)
-  if (tokenIds.length > 0) {
-    store.addAnimatingTokens(tokenIds)
+  const stackIds = getAnimatedStackIds(event)
+  if (stackIds.length > 0) {
+    store.addAnimatingTokens(stackIds)
   }
   store.enqueueAnimation(createAnimationItem(type, event, duration))
 }
@@ -94,8 +92,6 @@ function enqueueWithTokenRegistration(
 const handlers: Record<string, EventHandler<any>> = {
   game_started: (event: GameStartedEvent, store: GameStore) => {
     store.setPhase('in_progress')
-    // Reorder players if needed based on player_order
-    // The first player's turn should start
   },
 
   game_ended: (event: GameEndedEvent, store: GameStore) => {
@@ -104,11 +100,9 @@ const handlers: Record<string, EventHandler<any>> = {
   },
 
   turn_started: (event: TurnStartedEvent, store: GameStore) => {
-    // Find the player whose turn it is
     const player = store.players.find((p) => p.player_id === event.player_id)
     const isMyTurn = event.player_id === store.myPlayerId
 
-    // Show turn transition notification
     if (player) {
       store.setTurnTransition({
         playerName: player.name,
@@ -116,10 +110,9 @@ const handlers: Record<string, EventHandler<any>> = {
         isMyTurn,
       })
 
-      // Auto-hide after transition duration
       setTimeout(() => {
         store.setTurnTransition(null)
-      }, ANIMATION_DURATIONS.TURN_TRANSITION + 1500) // Show for 1.5s after animation
+      }, ANIMATION_DURATIONS.TURN_TRANSITION + 1500)
     }
 
     store.setCurrentTurn({
@@ -129,8 +122,8 @@ const handlers: Record<string, EventHandler<any>> = {
       legal_moves: [],
       current_turn_order: event.turn_number,
       extra_rolls: 0,
+      pending_capture: null,
     })
-    // Note: dice UI trigger moved to roll_granted handler
     store.clearHighlightedTokens()
     store.setDiceValue(null)
     store.setRollReason(null)
@@ -140,11 +133,9 @@ const handlers: Record<string, EventHandler<any>> = {
     store.clearHighlightedTokens()
     store.setDiceValue(null)
     store.setRollReason(null)
-    // Turn will be set by next turn_started event
   },
 
   roll_granted: (event: RollGrantedEvent, store: GameStore) => {
-    // This is the single trigger for enabling the dice roll UI
     store.setCurrentEvent('player_roll')
     store.setRollReason(event.reason)
   },
@@ -152,26 +143,20 @@ const handlers: Record<string, EventHandler<any>> = {
   dice_rolled: (event: DiceRolledEvent, store: GameStore) => {
     const isMyRoll = event.player_id === store.myPlayerId
 
-    // Update state immediately for game logic
     if (event.grants_extra_roll) {
       store.updateTurn({ extra_rolls: (store.currentTurn?.extra_rolls ?? 0) + 1 })
     }
     store.addRoll(event.value)
 
-    // Queue animation
     store.enqueueAnimation(
       createAnimationItem('dice_roll', event, ANIMATION_DURATIONS.DICE_ROLL)
     )
 
     if (isMyRoll) {
-      // For the rolling player, they have local animation in DicePanel
-      // Just set the dice value immediately - localRolling state handles display
       store.setDiceValue(event.value)
     } else {
-      // For opponents, trigger animation via diceRolling state
       store.setDiceRolling(true)
 
-      // Clear rolling state and show dice value after animation completes
       setTimeout(() => {
         store.setDiceValue(event.value)
         store.setDiceRolling(false)
@@ -181,166 +166,75 @@ const handlers: Record<string, EventHandler<any>> = {
 
   three_sixes_penalty: (event: ThreeSixesPenaltyEvent, store: GameStore) => {
     store.setShowPenaltyAnimation(true, event.player_id)
-    // Penalty display will be handled by UI component
     setTimeout(() => {
       store.setShowPenaltyAnimation(false)
     }, ANIMATION_DURATIONS.PENALTY_DISPLAY)
   },
 
-  token_moved: (event: TokenMovedEvent, store: GameStore) => {
-    // Update token state
-    store.updateToken(event.player_id, event.token_id, {
+  stack_moved: (event: StackMovedEvent, store: GameStore) => {
+    store.updateStackById(event.player_id, event.stack_id, {
       state: event.to_state,
       progress: event.to_progress,
     })
-
-    // Consume the roll used
     store.consumeRoll(event.roll_used)
 
-    // Queue animation (pre-registers token to prevent position updates during animation)
     const duration =
       Math.abs(event.to_progress - event.from_progress) *
-      ANIMATION_DURATIONS.TOKEN_MOVE_PER_SQUARE
-    enqueueWithTokenRegistration(store, 'token_move', event, duration)
+      ANIMATION_DURATIONS.STACK_MOVE_PER_SQUARE
+    enqueueWithStackRegistration(store, 'stack_move', event, duration)
   },
 
-  token_exited_hell: (event: TokenExitedHellEvent, store: GameStore) => {
-    // Update token state
-    store.updateToken(event.player_id, event.token_id, {
+  stack_exited_hell: (event: StackExitedHellEvent, store: GameStore) => {
+    store.updateStackById(event.player_id, event.stack_id, {
       state: 'road',
       progress: 0,
     })
-
-    // Consume the roll used
     store.consumeRoll(event.roll_used)
-
-    // Queue animation
-    enqueueWithTokenRegistration(
-      store,
-      'token_exit_hell',
-      event,
-      ANIMATION_DURATIONS.TOKEN_EXIT_HELL
-    )
+    enqueueWithStackRegistration(store, 'stack_exit_hell', event, ANIMATION_DURATIONS.STACK_EXIT_HELL)
   },
 
-  token_reached_heaven: (event: TokenReachedHeavenEvent, store: GameStore) => {
-    // Update token state
-    store.updateToken(event.player_id, event.token_id, {
+  stack_reached_heaven: (event: StackReachedHeavenEvent, store: GameStore) => {
+    store.updateStackById(event.player_id, event.stack_id, {
       state: 'heaven',
     })
-
-    // Queue animation
-    enqueueWithTokenRegistration(
-      store,
-      'token_reach_heaven',
-      event,
-      ANIMATION_DURATIONS.TOKEN_REACH_HEAVEN
-    )
+    enqueueWithStackRegistration(store, 'stack_reach_heaven', event, ANIMATION_DURATIONS.STACK_REACH_HEAVEN)
   },
 
-  token_captured: (event: TokenCapturedEvent, store: GameStore) => {
-    // Update captured token state back to hell
-    store.updateToken(event.captured_player_id, event.captured_token_id, {
-      state: 'hell',
-      progress: 0,
-      in_stack: false,
-    })
-
-    // Grant extra roll if applicable
+  stack_captured: (event: StackCapturedEvent, store: GameStore) => {
     if (event.grants_extra_roll) {
       store.updateTurn({
         extra_rolls: (store.currentTurn?.extra_rolls ?? 0) + 1,
       })
     }
-
-    // Queue animation
-    enqueueWithTokenRegistration(
-      store,
-      'token_capture',
-      event,
-      ANIMATION_DURATIONS.TOKEN_CAPTURE
-    )
+    enqueueWithStackRegistration(store, 'stack_capture', event, ANIMATION_DURATIONS.STACK_CAPTURE)
   },
 
-  stack_formed: (event: StackFormedEvent, store: GameStore) => {
-    // Add stack to player
-    store.addStack(event.player_id, {
-      stack_id: event.stack_id,
-      tokens: event.token_ids,
-    })
-
-    // Queue animation
-    enqueueWithTokenRegistration(
-      store,
-      'stack_form',
-      event,
-      ANIMATION_DURATIONS.STACK_FORM
-    )
-  },
-
-  stack_dissolved: (event: StackDissolvedEvent, store: GameStore) => {
-    // Use the results field to determine which tokens become individual vs stay in stacks
-    // This prevents visual flicker from briefly showing tokens before new stacks form
-    const tokensBecomingIndividual = new Set<string>()
-
-    if (event.results) {
-      for (const result of event.results) {
-        if (result.type === 'token') {
-          tokensBecomingIndividual.add(result.id)
-        }
-      }
+  stack_update: (event: StackUpdateEvent, store: GameStore) => {
+    for (const removed of event.remove_stacks) {
+      store.removeStack(event.player_id, removed.stack_id)
     }
-
-    // Remove the stack but only mark appropriate tokens as not in stack
-    store.removeStackWithResults(event.player_id, event.stack_id, tokensBecomingIndividual)
-
-    // Queue animation
-    enqueueWithTokenRegistration(
-      store,
-      'stack_dissolve',
-      event,
-      ANIMATION_DURATIONS.STACK_FORM
-    )
-  },
-
-  stack_moved: (event: StackMovedEvent, store: GameStore) => {
-    // Update all tokens in stack
-    const progressInHomestretch =
-      event.to_progress >= (useGameStore.getState().boardSetup?.squares_to_homestretch ?? 52)
-
-    event.token_ids.forEach((tokenId) => {
-      store.updateToken(event.player_id, tokenId, {
-        progress: event.to_progress,
-        state: progressInHomestretch ? 'homestretch' : 'road',
-      })
-    })
-
-    // Consume roll
-    store.consumeRoll(event.roll_used)
-
-    // Queue animation
-    const duration =
-      Math.abs(event.to_progress - event.from_progress) *
-      ANIMATION_DURATIONS.TOKEN_MOVE_PER_SQUARE
-    enqueueWithTokenRegistration(store, 'stack_move', event, duration)
+    for (const added of event.add_stacks) {
+      store.addStack(event.player_id, added)
+    }
+    enqueueWithStackRegistration(store, 'stack_update', event, ANIMATION_DURATIONS.STACK_UPDATE)
   },
 
   awaiting_choice: (event: AwaitingChoiceEvent, store: GameStore) => {
     store.setCurrentEvent('player_choice')
-    store.setLegalMoves(event.legal_moves)
-    store.setRollToAllocate(event.roll_to_allocate)
+    store.setAvailableMoves(event.available_moves)
 
-    // Highlight legal moves if it's my turn
-    const isMyTurn = event.player_id === store.myPlayerId
-    if (isMyTurn) {
-      // Use the parser to get highlightable entities (tokens and stacks)
-      const entities = getHighlightableEntities(event.legal_moves)
-
-      const highlighted: HighlightedToken[] = entities.map((entity) => ({
-        tokenId: entity.id,           // Can be token_id OR stack_id
+    if (event.player_id === store.myPlayerId) {
+      // Flatten available_moves to get all selectable stack IDs
+      const stackIds = new Set<string>()
+      for (const rollGroup of event.available_moves) {
+        for (const moveGroup of rollGroup.move_groups) {
+          stackIds.add(moveGroup.stack_id)
+        }
+      }
+      const highlighted: HighlightedStack[] = Array.from(stackIds).map(stackId => ({
+        stackId,
         playerId: event.player_id,
         type: 'selectable' as const,
-        entityType: entity.type,      // 'token' or 'stack'
       }))
       store.setHighlightedTokens(highlighted)
     }
@@ -349,20 +243,20 @@ const handlers: Record<string, EventHandler<any>> = {
   awaiting_capture_choice: (event: AwaitingCaptureChoiceEvent, store: GameStore) => {
     store.setCurrentEvent('capture_choice')
 
-    // Parse options into capture options
-    const options: CaptureOption[] = event.options.map((opt) => {
-      if (opt === 'stack') {
-        return { id: 'stack', label: 'Stack with your token', type: 'stack' as const }
-      } else if (opt === 'capture') {
-        return { id: 'capture', label: 'Capture enemy token', type: 'capture' as const }
-      } else {
-        return { id: opt, label: `Capture ${opt}`, type: 'target' as const }
+    const options: CaptureOption[] = event.options.map(opt => {
+      const [playerId, stackId] = opt.split(':')
+      const player = store.players.find(p => p.player_id === playerId)
+      const stack = player?.stacks.find(s => s.stack_id === stackId)
+      return {
+        target: opt,
+        playerColor: player?.color ?? 'red',
+        stackId,
+        stackHeight: stack?.height ?? 1,
       }
     })
 
     store.setCaptureOptions(options)
 
-    // Show modal if it's my turn
     if (event.player_id === store.myPlayerId) {
       store.setShowCaptureChoiceModal(true)
     }
@@ -393,7 +287,6 @@ export function processEvent(event: GameEvent): void {
  * Process multiple events in order
  */
 export function processEvents(events: GameEvent[]): void {
-  // Sort by sequence number
   const sorted = [...events].sort((a, b) => a.seq - b.seq)
 
   for (const event of sorted) {
@@ -429,10 +322,8 @@ export function applyGameState(
     myPlayerId
   )
 
-  // Set current turn info
   if (state.current_turn) {
     store.setCurrentTurn(state.current_turn)
     store.setCurrentEvent(state.current_event)
-    store.setLegalMoves(state.current_turn.legal_moves || [])
   }
 }
