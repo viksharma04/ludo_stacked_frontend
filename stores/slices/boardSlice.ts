@@ -1,12 +1,5 @@
 import type { StateCreator } from 'zustand'
-import type {
-  GamePhase,
-  Player,
-  BoardSetup,
-  Stack,
-  Token,
-  GameState,
-} from '@/types/game'
+import type { GamePhase, Player, BoardSetup, Stack, GameState } from '@/types/game'
 import type { GameStore } from '../gameStore'
 
 export interface BoardSlice {
@@ -23,19 +16,10 @@ export interface BoardSlice {
   setBoardSetup: (setup: BoardSetup) => void
   setMyPlayerId: (playerId: string) => void
   setEventSeq: (seq: number) => void
-  updateToken: (
-    playerId: string,
-    tokenId: string,
-    updates: Partial<Token>
-  ) => void
   addStack: (playerId: string, stack: Stack) => void
   removeStack: (playerId: string, stackId: string) => void
-  removeStackWithResults: (
-    playerId: string,
-    stackId: string,
-    tokensBecomingIndividual: Set<string>
-  ) => void
-  updateStack: (playerId: string, stackId: string, tokens: string[]) => void
+  updateStackById: (playerId: string, stackId: string, updates: Partial<Stack>) => void
+  replacePlayerStacks: (playerId: string, stacks: Stack[]) => void
   initializeFromGameState: (state: GameState, myPlayerId: string) => void
   resetBoard: () => void
 }
@@ -57,169 +41,59 @@ export const createBoardSlice: StateCreator<
   ...initialBoardState,
 
   setPhase: (phase) =>
-    set(
-      (state) => {
-        state.phase = phase
-      },
-      false,
-      'setPhase'
-    ),
+    set((state) => { state.phase = phase }, false, 'setPhase'),
 
   setPlayers: (players) =>
-    set(
-      (state) => {
-        state.players = players
-      },
-      false,
-      'setPlayers'
-    ),
+    set((state) => { state.players = players }, false, 'setPlayers'),
 
   setBoardSetup: (setup) =>
-    set(
-      (state) => {
-        state.boardSetup = setup
-      },
-      false,
-      'setBoardSetup'
-    ),
+    set((state) => { state.boardSetup = setup }, false, 'setBoardSetup'),
 
   setMyPlayerId: (playerId) =>
-    set(
-      (state) => {
-        state.myPlayerId = playerId
-      },
-      false,
-      'setMyPlayerId'
-    ),
+    set((state) => { state.myPlayerId = playerId }, false, 'setMyPlayerId'),
 
   setEventSeq: (seq) =>
-    set(
-      (state) => {
-        state.eventSeq = seq
-      },
-      false,
-      'setEventSeq'
-    ),
-
-  updateToken: (playerId, tokenId, updates) =>
-    set(
-      (state) => {
-        const player = state.players.find((p) => p.player_id === playerId)
-        if (!player) return
-
-        const token = player.tokens.find((t) => t.token_id === tokenId)
-        if (!token) return
-
-        Object.assign(token, updates)
-      },
-      false,
-      'updateToken'
-    ),
+    set((state) => { state.eventSeq = seq }, false, 'setEventSeq'),
 
   addStack: (playerId, stack) =>
-    set(
-      (state) => {
-        const player = state.players.find((p) => p.player_id === playerId)
-        if (!player) return
-
-        if (!player.stacks) {
-          player.stacks = []
-        }
-        player.stacks.push(stack)
-
-        // Mark tokens as in_stack
-        stack.tokens.forEach((tokenId) => {
-          const token = player.tokens.find((t) => t.token_id === tokenId)
-          if (token) {
-            token.in_stack = true
-          }
-        })
-      },
-      false,
-      'addStack'
-    ),
+    set((state) => {
+      const player = state.players.find((p) => p.player_id === playerId)
+      if (!player) return
+      player.stacks.push(stack)
+    }, false, 'addStack'),
 
   removeStack: (playerId, stackId) =>
-    set(
-      (state) => {
-        const player = state.players.find((p) => p.player_id === playerId)
-        if (!player || !player.stacks) return
+    set((state) => {
+      const player = state.players.find((p) => p.player_id === playerId)
+      if (!player) return
+      player.stacks = player.stacks.filter((s) => s.stack_id !== stackId)
+    }, false, 'removeStack'),
 
-        const stack = player.stacks.find((s) => s.stack_id === stackId)
-        if (stack) {
-          // Mark tokens as not in stack
-          stack.tokens.forEach((tokenId) => {
-            const token = player.tokens.find((t) => t.token_id === tokenId)
-            if (token) {
-              token.in_stack = false
-            }
-          })
-        }
+  updateStackById: (playerId, stackId, updates) =>
+    set((state) => {
+      const player = state.players.find((p) => p.player_id === playerId)
+      if (!player) return
+      const stack = player.stacks.find((s) => s.stack_id === stackId)
+      if (!stack) return
+      Object.assign(stack, updates)
+    }, false, 'updateStackById'),
 
-        player.stacks = player.stacks.filter((s) => s.stack_id !== stackId)
-      },
-      false,
-      'removeStack'
-    ),
-
-  removeStackWithResults: (playerId, stackId, tokensBecomingIndividual) =>
-    set(
-      (state) => {
-        const player = state.players.find((p) => p.player_id === playerId)
-        if (!player || !player.stacks) return
-
-        const stack = player.stacks.find((s) => s.stack_id === stackId)
-        if (stack) {
-          // Only mark tokens as not in stack if they truly become individual
-          // Tokens that will form new stacks should stay in_stack = true
-          stack.tokens.forEach((tokenId) => {
-            const token = player.tokens.find((t) => t.token_id === tokenId)
-            if (token && tokensBecomingIndividual.has(tokenId)) {
-              token.in_stack = false
-            }
-          })
-        }
-
-        player.stacks = player.stacks.filter((s) => s.stack_id !== stackId)
-      },
-      false,
-      'removeStackWithResults'
-    ),
-
-  updateStack: (playerId, stackId, tokens) =>
-    set(
-      (state) => {
-        const player = state.players.find((p) => p.player_id === playerId)
-        if (!player || !player.stacks) return
-
-        const stack = player.stacks.find((s) => s.stack_id === stackId)
-        if (stack) {
-          stack.tokens = tokens
-        }
-      },
-      false,
-      'updateStack'
-    ),
+  replacePlayerStacks: (playerId, stacks) =>
+    set((state) => {
+      const player = state.players.find((p) => p.player_id === playerId)
+      if (!player) return
+      player.stacks = stacks
+    }, false, 'replacePlayerStacks'),
 
   initializeFromGameState: (gameState, myPlayerId) =>
-    set(
-      (state) => {
-        state.phase = gameState.phase
-        state.players = gameState.players
-        state.boardSetup = gameState.board_setup
-        state.myPlayerId = myPlayerId
-        state.eventSeq = gameState.event_seq
-      },
-      false,
-      'initializeFromGameState'
-    ),
+    set((state) => {
+      state.phase = gameState.phase
+      state.players = gameState.players
+      state.boardSetup = gameState.board_setup
+      state.myPlayerId = myPlayerId
+      state.eventSeq = gameState.event_seq
+    }, false, 'initializeFromGameState'),
 
   resetBoard: () =>
-    set(
-      (state) => {
-        Object.assign(state, initialBoardState)
-      },
-      false,
-      'resetBoard'
-    ),
+    set((state) => { Object.assign(state, initialBoardState) }, false, 'resetBoard'),
 })
