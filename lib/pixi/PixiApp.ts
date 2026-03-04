@@ -123,7 +123,7 @@ export class PixiApp {
     )
     this.unsubscribers.push(unsubBoardSetup)
 
-    // Subscribe to highlighted tokens - pass full entity info for proper stack highlighting
+    // Subscribe to highlighted stacks
     const unsubHighlighted = useGameStore.subscribe(
       (state) => state.highlightedTokens,
       (highlighted) => {
@@ -134,9 +134,9 @@ export class PixiApp {
     )
     this.unsubscribers.push(unsubHighlighted)
 
-    // Subscribe to selected token
+    // Subscribe to selected stack
     const unsubSelected = useGameStore.subscribe(
-      (state) => state.selectedTokenId,
+      (state) => state.selectedStackId,
       (selectedId) => {
         if (this.tokenRenderer) {
           this.tokenRenderer.setSelectedToken(selectedId)
@@ -193,8 +193,8 @@ export class PixiApp {
     return this.app
   }
 
-  // Set token click handler
-  setTokenClickHandler(handler: (tokenId: string) => void): void {
+  // Set stack click handler
+  setTokenClickHandler(handler: (stackId: string) => void): void {
     if (this.tokenRenderer) {
       this.tokenRenderer.setClickHandler(handler)
     }

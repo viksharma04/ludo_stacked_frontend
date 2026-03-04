@@ -15,24 +15,27 @@ interface UseAnimationQueueOptions {
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms))
 
-// Extract token IDs that were animated from an event (for cleanup)
-function getAnimatedTokenIds(event: GameEvent): string[] {
+// Extract stack IDs that were animated from an event (for cleanup)
+function getAnimatedStackIds(event: GameEvent): string[] {
   switch (event.event_type) {
-    case 'token_moved':
-      return [(event as { token_id: string }).token_id]
-    case 'token_exited_hell':
-      return [(event as { token_id: string }).token_id]
-    case 'token_reached_heaven':
-      return [(event as { token_id: string }).token_id]
-    case 'token_captured':
-      return [
-        (event as { capturing_token_id: string }).capturing_token_id,
-        (event as { captured_token_id: string }).captured_token_id,
-      ]
-    case 'stack_formed':
-    case 'stack_dissolved':
     case 'stack_moved':
-      return (event as { token_ids: string[] }).token_ids
+      return [(event as { stack_id: string }).stack_id]
+    case 'stack_exited_hell':
+      return [(event as { stack_id: string }).stack_id]
+    case 'stack_reached_heaven':
+      return [(event as { stack_id: string }).stack_id]
+    case 'stack_captured':
+      return [
+        (event as { capturing_stack_id: string }).capturing_stack_id,
+        (event as { captured_stack_id: string }).captured_stack_id,
+      ]
+    case 'stack_update': {
+      const e = event as { add_stacks?: { stack_id: string }[]; remove_stacks?: string[] }
+      const ids: string[] = []
+      if (e.add_stacks) ids.push(...e.add_stacks.map(s => s.stack_id))
+      if (e.remove_stacks) ids.push(...e.remove_stacks)
+      return ids
+    }
     default:
       return []
   }
@@ -66,8 +69,8 @@ export function useAnimationQueue({
       const item = store.dequeueAnimation()
       if (!item) break
 
-      // Get token IDs that will be animated (for cleanup after)
-      const tokenIds = getAnimatedTokenIds(item.event)
+      // Get stack IDs that will be animated (for cleanup after)
+      const stackIds = getAnimatedStackIds(item.event)
 
       try {
         // Play the animation
@@ -93,9 +96,9 @@ export function useAnimationQueue({
         console.error('Animation error:', error)
         // Continue with next animation even if one fails
       } finally {
-        // Remove token IDs from animating set after animation completes
-        if (tokenIds.length > 0) {
-          useGameStore.getState().removeAnimatingTokens(tokenIds)
+        // Remove stack IDs from animating set after animation completes
+        if (stackIds.length > 0) {
+          useGameStore.getState().removeAnimatingTokens(stackIds)
         }
       }
 
