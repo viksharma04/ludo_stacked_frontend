@@ -36,8 +36,8 @@ export function GameBoard({
   const penaltyPlayer = usePlayerById(penaltyPlayerId ?? '')
   const availableMoves = useAvailableMoves()
 
-  const [pixiApp, setPixiApp] = useState<PixiApp | null>(null)
-  const [animationController, setAnimationController] = useState<AnimationController | null>(null)
+  const [, setPixiApp] = useState<PixiApp | null>(null)
+  const [, setAnimationController] = useState<AnimationController | null>(null)
 
   // Game WebSocket hook
   const {
