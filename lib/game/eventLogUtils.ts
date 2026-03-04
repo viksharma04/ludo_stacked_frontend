@@ -11,13 +11,11 @@ import type {
   RollGrantedEvent,
   DiceRolledEvent,
   ThreeSixesPenaltyEvent,
-  TokenMovedEvent,
-  TokenExitedHellEvent,
-  TokenReachedHeavenEvent,
-  TokenCapturedEvent,
-  StackFormedEvent,
-  StackDissolvedEvent,
   StackMovedEvent,
+  StackExitedHellEvent,
+  StackReachedHeavenEvent,
+  StackCapturedEvent,
+  StackUpdateEvent,
   AwaitingChoiceEvent,
   AwaitingCaptureChoiceEvent,
 } from '@/types/game'
@@ -90,7 +88,6 @@ function createLogData(
 
     case 'roll_granted': {
       const e = event as RollGrantedEvent
-      // Only log bonus rolls, not turn_start rolls (since turn_started already logs the turn)
       if (e.reason === 'turn_start') {
         return null
       }
@@ -124,8 +121,8 @@ function createLogData(
       }
     }
 
-    case 'token_exited_hell': {
-      const e = event as TokenExitedHellEvent
+    case 'stack_exited_hell': {
+      const e = event as StackExitedHellEvent
       const playerName = getPlayerName(e.player_id, players)
       return {
         message: `${playerName} entered the board`,
@@ -134,8 +131,8 @@ function createLogData(
       }
     }
 
-    case 'token_moved': {
-      const e = event as TokenMovedEvent
+    case 'stack_moved': {
+      const e = event as StackMovedEvent
       const playerName = getPlayerName(e.player_id, players)
       const distance = Math.abs(e.to_progress - e.from_progress)
       return {
@@ -145,64 +142,48 @@ function createLogData(
       }
     }
 
-    case 'token_reached_heaven': {
-      const e = event as TokenReachedHeavenEvent
+    case 'stack_reached_heaven': {
+      const e = event as StackReachedHeavenEvent
       const playerName = getPlayerName(e.player_id, players)
       return {
-        message: `${playerName}'s token reached heaven!`,
+        message: `${playerName}'s stack reached heaven!`,
         severity: 'success',
         playerId: e.player_id,
       }
     }
 
-    case 'token_captured': {
-      const e = event as TokenCapturedEvent
+    case 'stack_captured': {
+      const e = event as StackCapturedEvent
       const capturingName = getPlayerName(e.capturing_player_id, players)
       const capturedName = getPlayerName(e.captured_player_id, players)
       return {
-        message: `${capturingName} captured ${capturedName}'s token!`,
+        message: `${capturingName} captured ${capturedName}'s stack!`,
         severity: 'danger',
         playerId: e.capturing_player_id,
       }
     }
 
-    case 'stack_formed': {
-      const e = event as StackFormedEvent
+    case 'stack_update': {
+      const e = event as StackUpdateEvent
       const playerName = getPlayerName(e.player_id, players)
-      const count = e.token_ids.length
-      return {
-        message: `${playerName} formed a stack of ${count}`,
-        severity: 'success',
-        playerId: e.player_id,
-      }
-    }
-
-    case 'stack_dissolved': {
-      const e = event as StackDissolvedEvent
-      const playerName = getPlayerName(e.player_id, players)
-      if (e.reason === 'captured') {
+      if (e.remove_stacks.length > 1 && e.add_stacks.length === 1) {
         return {
-          message: `${playerName}'s stack was captured`,
-          severity: 'danger',
+          message: `${playerName} formed a stack of ${e.add_stacks[0].height}`,
+          severity: 'success',
           playerId: e.player_id,
         }
-      } else {
+      } else if (e.remove_stacks.length === 1 && e.add_stacks.length > 1) {
         return {
           message: `${playerName} split their stack`,
           severity: 'info',
           playerId: e.player_id,
         }
-      }
-    }
-
-    case 'stack_moved': {
-      const e = event as StackMovedEvent
-      const playerName = getPlayerName(e.player_id, players)
-      const distance = Math.abs(e.to_progress - e.from_progress)
-      return {
-        message: `${playerName} moved stack ${distance} space${distance !== 1 ? 's' : ''}`,
-        severity: 'info',
-        playerId: e.player_id,
+      } else {
+        return {
+          message: `${playerName}'s stack was broken apart`,
+          severity: 'warning',
+          playerId: e.player_id,
+        }
       }
     }
 
@@ -220,7 +201,7 @@ function createLogData(
       const e = event as AwaitingCaptureChoiceEvent
       const playerName = getPlayerName(e.player_id, players)
       return {
-        message: `${playerName} choosing capture option...`,
+        message: `${playerName} choosing capture target...`,
         severity: 'info',
         playerId: e.player_id,
       }
