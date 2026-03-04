@@ -1,168 +1,85 @@
-import type { ParsedLegalMove, Player, Stack, HighlightableEntity } from '@/types/game'
+import type { Stack, Player, RollMoveGroup, LegalMoveGroup } from '@/types/game'
 
 /**
- * Parse a single legal move ID from the server
- *
- * Formats:
- * - Token: `{player_id}_token_{1-4}` (e.g., `abc_token_2`)
- * - Stack split: `{stack_id}:{partial_count}` (e.g., `stack_xyz:1`, `stack_xyz:2`)
+ * Flatten available_moves to get all unique selectable stack IDs
  */
-export function parseLegalMove(moveId: string): ParsedLegalMove {
-  // Check if it's a stack split (contains colon)
-  if (moveId.includes(':')) {
-    const [stackId, countStr] = moveId.split(':')
-    return {
-      rawId: moveId,
-      type: 'stack',
-      entityId: stackId,
-      stackSplitCount: parseInt(countStr, 10),
+export function flattenAvailableMoves(moves: RollMoveGroup[]): string[] {
+  const stackIds = new Set<string>()
+  for (const rollGroup of moves) {
+    for (const moveGroup of rollGroup.move_groups) {
+      stackIds.add(moveGroup.stack_id)
     }
   }
-
-  // Check if it's a stack move (contains 'stack' but no colon)
-  if (moveId.includes('stack')) {
-    return {
-      rawId: moveId,
-      type: 'stack',
-      entityId: moveId,
-    }
-  }
-
-  // Otherwise it's a token
-  return {
-    rawId: moveId,
-    type: 'token',
-    entityId: moveId,
-  }
+  return Array.from(stackIds)
 }
 
 /**
- * Group legal moves by entity ID
- * Returns a map where key is the entityId and value is array of parsed moves
- *
- * This is useful for detecting stacks with multiple split options
+ * Find which roll values a stack can use
  */
-export function groupLegalMoves(moveIds: string[]): Map<string, ParsedLegalMove[]> {
-  const grouped = new Map<string, ParsedLegalMove[]>()
-
-  for (const moveId of moveIds) {
-    const parsed = parseLegalMove(moveId)
-    const existing = grouped.get(parsed.entityId) || []
-    existing.push(parsed)
-    grouped.set(parsed.entityId, existing)
-  }
-
-  return grouped
-}
-
-/**
- * Get entities that should be highlighted on the board
- *
- * For tokens: returns the token ID directly with type 'token'
- * For stacks: returns the stack ID directly with type 'stack' (no lead token substitution)
- */
-export function getHighlightableEntities(
-  moveIds: string[]
-): HighlightableEntity[] {
-  const grouped = groupLegalMoves(moveIds)
-  const entities: HighlightableEntity[] = []
-
-  for (const [entityId, moves] of grouped) {
-    const firstMove = moves[0]
-
-    if (firstMove.type === 'token') {
-      // Direct token - add with token type
-      entities.push({ id: entityId, type: 'token' })
-    } else {
-      // Stack - return the stack ID directly, not a lead token
-      entities.push({ id: entityId, type: 'stack' })
-    }
-  }
-
-  return entities
-}
-
-/**
- * Find which entity (token or stack) was clicked based on token ID or stack ID
- * Returns the entityId used in legal moves
- *
- * IMPORTANT: We check legal moves first to determine entity type.
- * This handles cases where player.stacks may be stale (e.g., after a stack split).
- */
-export function findEntityForToken(
-  clickedId: string,
-  players: Player[],
-  legalMoves?: string[]
-): { entityId: string; type: 'token' | 'stack' } {
-  // If we have legal moves, use them as the source of truth
-  if (legalMoves && legalMoves.length > 0) {
-    const groupedMoves = groupLegalMoves(legalMoves)
-
-    // Check if this is a stack ID that's directly in legal moves
-    // (This handles the case where a stack sprite was clicked)
-    if (clickedId.includes('stack') && groupedMoves.has(clickedId)) {
-      return { entityId: clickedId, type: 'stack' }
-    }
-
-    // Check if this token ID is directly in legal moves
-    if (groupedMoves.has(clickedId)) {
-      return { entityId: clickedId, type: 'token' }
-    }
-
-    // Check if this token is part of a stack that has legal moves
-    for (const player of players) {
-      if (player.stacks) {
-        for (const stack of player.stacks) {
-          if (stack.tokens.includes(clickedId)) {
-            // Only return stack if the stack actually has legal moves
-            if (groupedMoves.has(stack.stack_id)) {
-              return { entityId: stack.stack_id, type: 'stack' }
-            }
-          }
-        }
+export function getRollsForStack(
+  stackId: string,
+  availableMoves: RollMoveGroup[]
+): number[] {
+  const rolls: number[] = []
+  for (const rollGroup of availableMoves) {
+    for (const moveGroup of rollGroup.move_groups) {
+      if (moveGroup.stack_id === stackId) {
+        rolls.push(rollGroup.roll)
+        break
       }
     }
   }
-
-  // Fallback: check player.stacks (legacy behavior)
-  for (const player of players) {
-    if (player.stacks) {
-      for (const stack of player.stacks) {
-        if (stack.tokens.includes(clickedId)) {
-          return { entityId: stack.stack_id, type: 'stack' }
-        }
-      }
-    }
-  }
-
-  // Not in a stack, return as token
-  return { entityId: clickedId, type: 'token' }
+  return rolls
 }
 
 /**
- * Check if a stack has multiple split options
+ * Get move options for a specific stack + roll combination
+ * Returns the moves array (full stack + possible sub-stack splits)
  */
-export function hasMultipleSplitOptions(
-  entityId: string,
-  groupedMoves: Map<string, ParsedLegalMove[]>
-): boolean {
-  const moves = groupedMoves.get(entityId)
-  return moves !== undefined && moves.length > 1
+export function getMovesForStackAndRoll(
+  stackId: string,
+  rollValue: number,
+  availableMoves: RollMoveGroup[]
+): string[] {
+  const rollGroup = availableMoves.find(rg => rg.roll === rollValue)
+  if (!rollGroup) return []
+  const moveGroup = rollGroup.move_groups.find(mg => mg.stack_id === stackId)
+  return moveGroup?.moves ?? []
 }
 
 /**
- * Get stack information for a given entity
+ * Get the LegalMoveGroup for a specific stack + roll combination
+ */
+export function getMoveGroupForStackAndRoll(
+  stackId: string,
+  rollValue: number,
+  availableMoves: RollMoveGroup[]
+): LegalMoveGroup | null {
+  const rollGroup = availableMoves.find(rg => rg.roll === rollValue)
+  if (!rollGroup) return null
+  return rollGroup.move_groups.find(mg => mg.stack_id === stackId) ?? null
+}
+
+/**
+ * Check if a move ID represents a sub-stack split
+ * When moves array has more than one entry, the first is full stack
+ * and subsequent are splits
+ */
+export function hasSplitOptions(moves: string[]): boolean {
+  return moves.length > 1
+}
+
+/**
+ * Get stack info from player data
  */
 export function getStackInfo(
   stackId: string,
   players: Player[]
 ): { stack: Stack; playerId: string } | null {
   for (const player of players) {
-    if (player.stacks) {
-      const stack = player.stacks.find((s) => s.stack_id === stackId)
-      if (stack) {
-        return { stack, playerId: player.player_id }
-      }
+    const stack = player.stacks.find((s) => s.stack_id === stackId)
+    if (stack) {
+      return { stack, playerId: player.player_id }
     }
   }
   return null
