@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type {
   GameActionType,
-  GameEvent,
   GameState,
   WSGameEventsMessage,
-  WSGameStateMessage,
   WSGameErrorMessage,
 } from '@/types/game'
 import { processEvents, applyGameState } from '@/lib/game/eventProcessor'
@@ -84,7 +82,8 @@ export function useGameWebSocket({
         }
 
         case GAME_MESSAGE_TYPES.GAME_STATE: {
-          const state = message.payload as GameState
+          const payload = message.payload as { state: GameState }
+          const state = payload?.state
           if (!state || !myPlayerIdRef.current) return
 
           // Reset sequence manager to match server state
@@ -123,13 +122,14 @@ export function useGameWebSocket({
   )
 
   const selectMove = useCallback(
-    (tokenOrStackId: string) => {
+    (stackId: string, rollValue: number) => {
       sendMessage({
         type: 'game_action',
         request_id: crypto.randomUUID(),
         payload: {
           action_type: 'move' as GameActionType,
-          token_or_stack_id: tokenOrStackId,
+          stack_id: stackId,
+          roll_value: rollValue,
         },
       })
 
@@ -142,13 +142,13 @@ export function useGameWebSocket({
   )
 
   const selectCaptureChoice = useCallback(
-    (choice: 'stack' | 'capture' | string) => {
+    (target: string) => {
       sendMessage({
         type: 'game_action',
         request_id: crypto.randomUUID(),
         payload: {
           action_type: 'capture_choice' as GameActionType,
-          choice,
+          choice: target,
         },
       })
 
@@ -162,11 +162,8 @@ export function useGameWebSocket({
 
   const startGame = useCallback(() => {
     sendMessage({
-      type: 'game_action',
+      type: 'start_game',
       request_id: crypto.randomUUID(),
-      payload: {
-        action_type: 'start_game' as GameActionType,
-      },
     })
   }, [sendMessage])
 
