@@ -291,9 +291,10 @@ export class BoardGeometry {
       case 'homestretch': {
         // Token is on the homestretch
         // Progress in homestretch is relative to entering (progress > squares_to_homestretch)
+        // homestretch_index = progress - squares_to_homestretch
         // Progress 50 = homestretch position 0, progress 51 = position 1, etc.
         const homestretchProgress = this.boardSetup
-          ? progress - this.boardSetup.squares_to_homestretch - 1
+          ? progress - this.boardSetup.squares_to_homestretch
           : progress
         const homestretchPos = HOMESTRETCH_POSITIONS[playerColor]
         const posIndex = Math.min(

@@ -108,7 +108,7 @@ export class AnimationController {
     )
 
     const durationPerSquare = this.getDuration(ANIMATION_DURATIONS.STACK_MOVE_PER_SQUARE)
-    await tokenRenderer.animateTokenMove(event.stack_id, path, durationPerSquare, startPosition)
+    await tokenRenderer.animateTokenMove(event.player_id, event.stack_id, path, durationPerSquare, startPosition)
   }
 
   private async animateStackExitHell(event: StackExitedHellEvent): Promise<void> {
@@ -126,14 +126,14 @@ export class AnimationController {
       0
     )
 
-    await tokenRenderer.animateExitHell(event.stack_id, targetPos)
+    await tokenRenderer.animateExitHell(event.player_id, event.stack_id, targetPos)
   }
 
   private async animateStackReachHeaven(event: StackReachedHeavenEvent): Promise<void> {
     const tokenRenderer = this.pixiApp.getTokenRenderer()
     if (!tokenRenderer) return
 
-    await tokenRenderer.animateReachHeaven(event.stack_id)
+    await tokenRenderer.animateReachHeaven(event.player_id, event.stack_id)
   }
 
   private async animateStackCapture(event: StackCapturedEvent): Promise<void> {
@@ -153,7 +153,9 @@ export class AnimationController {
     )
 
     await tokenRenderer.animateCapture(
+      event.capturing_player_id,
       event.capturing_stack_id,
+      event.captured_player_id,
       event.captured_stack_id,
       returnPos
     )

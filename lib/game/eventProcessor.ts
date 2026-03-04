@@ -49,25 +49,38 @@ function createAnimationItem(
   }
 }
 
-// Extract stack IDs that will be animated from an event
+// Build composite key for animating token tracking: `${playerId}:${stackId}`
+function makeCompositeKey(playerId: string, stackId: string): string {
+  return `${playerId}:${stackId}`
+}
+
+// Extract composite keys (playerId:stackId) that will be animated from an event
 function getAnimatedStackIds(event: GameEvent): string[] {
   switch (event.event_type) {
-    case 'stack_moved':
-      return [(event as StackMovedEvent).stack_id]
-    case 'stack_exited_hell':
-      return [(event as StackExitedHellEvent).stack_id]
-    case 'stack_reached_heaven':
-      return [(event as StackReachedHeavenEvent).stack_id]
-    case 'stack_captured':
+    case 'stack_moved': {
+      const e = event as StackMovedEvent
+      return [makeCompositeKey(e.player_id, e.stack_id)]
+    }
+    case 'stack_exited_hell': {
+      const e = event as StackExitedHellEvent
+      return [makeCompositeKey(e.player_id, e.stack_id)]
+    }
+    case 'stack_reached_heaven': {
+      const e = event as StackReachedHeavenEvent
+      return [makeCompositeKey(e.player_id, e.stack_id)]
+    }
+    case 'stack_captured': {
+      const e = event as StackCapturedEvent
       return [
-        (event as StackCapturedEvent).capturing_stack_id,
-        (event as StackCapturedEvent).captured_stack_id,
+        makeCompositeKey(e.capturing_player_id, e.capturing_stack_id),
+        makeCompositeKey(e.captured_player_id, e.captured_stack_id),
       ]
+    }
     case 'stack_update': {
       const e = event as StackUpdateEvent
       return [
-        ...e.add_stacks.map(s => s.stack_id),
-        ...e.remove_stacks.map(s => s.stack_id),
+        ...e.add_stacks.map(s => makeCompositeKey(e.player_id, s.stack_id)),
+        ...e.remove_stacks.map(s => makeCompositeKey(e.player_id, s.stack_id)),
       ]
     }
     default:

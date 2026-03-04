@@ -206,14 +206,14 @@ export class BoardRenderer {
     this.boardGraphics.fill({ color: BOARD_COLORS.CENTER })
 
     // Draw triangular sections for each player color
-    const colors: PlayerColor[] = ['red', 'blue', 'green', 'yellow']
+    // Mapping: bottom→blue, left→red, top→yellow, right→green
+    // (matches homestretch entry direction for each color)
+    const colors: PlayerColor[] = ['blue', 'red', 'yellow', 'green']
     const halfSize = centerSize / 2
 
     colors.forEach((color, index) => {
       const colorConfig = PLAYER_COLORS[color]
-      const angle = (index * Math.PI) / 2 - Math.PI / 4
 
-      // Calculate triangle points
       const cx = centerPos.x
       const cy = centerPos.y
 
@@ -221,19 +221,19 @@ export class BoardRenderer {
       this.boardGraphics.moveTo(cx, cy)
 
       switch (index) {
-        case 0: // Green (top-left, coming from bottom)
+        case 0: // Blue (enters from bottom)
           this.boardGraphics.lineTo(cx - halfSize, cy + halfSize)
           this.boardGraphics.lineTo(cx + halfSize, cy + halfSize)
           break
-        case 1: // Yellow (top-right, coming from left)
+        case 1: // Red (enters from left)
           this.boardGraphics.lineTo(cx - halfSize, cy - halfSize)
           this.boardGraphics.lineTo(cx - halfSize, cy + halfSize)
           break
-        case 2: // Blue (bottom-right, coming from top)
+        case 2: // Yellow (enters from top)
           this.boardGraphics.lineTo(cx - halfSize, cy - halfSize)
           this.boardGraphics.lineTo(cx + halfSize, cy - halfSize)
           break
-        case 3: // Red (bottom-left, coming from right)
+        case 3: // Green (enters from right)
           this.boardGraphics.lineTo(cx + halfSize, cy - halfSize)
           this.boardGraphics.lineTo(cx + halfSize, cy + halfSize)
           break

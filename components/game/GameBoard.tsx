@@ -1,12 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { GameCanvas } from './GameCanvas'
 import { GameHUD } from './GameHUD'
 import { DicePanel } from './DicePanel'
 import { EventLog } from './EventLog'
-import { MoveChoiceModal } from './MoveChoiceModal'
+import { SplitPopover } from './SplitPopover'
 import { CaptureChoiceModal } from './CaptureChoiceModal'
 import { VictoryScreen } from './VictoryScreen'
 import { TurnTransitionToast } from './TurnTransitionToast'
@@ -15,7 +15,8 @@ import { useGameStore } from '@/stores/gameStore'
 import { useIsAnimating, useShowPenaltyAnimation, usePenaltyPlayerId, usePlayerById, useAvailableMoves } from '@/stores/selectors'
 import type { PixiApp } from '@/lib/pixi/PixiApp'
 import type { AnimationController } from '@/lib/pixi/AnimationController'
-import { getRollsForStack } from '@/lib/game/legalMoveParser'
+import { getMoveOptionsForStack, type MoveOption } from '@/lib/game/legalMoveParser'
+import type { PlayerColor } from '@/types/game'
 
 interface GameBoardProps {
   sendMessage: (message: { type: string; request_id?: string; payload?: unknown }) => void
@@ -37,6 +38,15 @@ export function GameBoard({
 
   const [, setPixiApp] = useState<PixiApp | null>(null)
   const [, setAnimationController] = useState<AnimationController | null>(null)
+  const boardAreaRef = useRef<HTMLDivElement>(null)
+
+  // Split popover state
+  const [splitPopover, setSplitPopover] = useState<{
+    x: number
+    y: number
+    options: MoveOption[]
+    playerColor: PlayerColor
+  } | null>(null)
 
   // Game WebSocket hook
   const {
@@ -68,23 +78,50 @@ export function GameBoard({
 
   // Handle stack clicks — determine move from availableMoves
   const handleTokenClick = useCallback(
-    (stackId: string) => {
-      const rolls = getRollsForStack(stackId, availableMoves)
+    (stackId: string, screenX: number, screenY: number) => {
+      const options = getMoveOptionsForStack(stackId, availableMoves)
 
-      if (rolls.length === 0) return
+      if (options.length === 0) return
 
-      if (rolls.length === 1) {
-        // Single roll — auto-send the move
-        selectMove(stackId, rolls[0])
+      if (options.length === 1 && options[0].moves.length === 1) {
+        // Single roll, single move option — auto-send
+        selectMove(options[0].moves[0], options[0].roll)
       } else {
-        // Multiple rolls available — select the stack and show move choice modal
+        // Multiple rolls or split options — show popover at stack position
         const store = useGameStore.getState()
-        store.setSelectedStackId(stackId)
-        store.setShowMoveChoiceModal(true)
+        const myPlayer = store.players.find(p => p.player_id === store.myPlayerId)
+
+        // Convert screen coords to position relative to the board area container
+        const boardArea = boardAreaRef.current
+        if (boardArea) {
+          const rect = boardArea.getBoundingClientRect()
+          setSplitPopover({
+            x: screenX - rect.left,
+            y: screenY - rect.top,
+            options,
+            playerColor: myPlayer?.color ?? 'red',
+          })
+          store.setSelectedStackId(stackId)
+        }
       }
     },
     [selectMove, availableMoves]
   )
+
+  // Handle split popover selection
+  const handleSplitSelect = useCallback(
+    (moveId: string, roll: number) => {
+      selectMove(moveId, roll)
+      setSplitPopover(null)
+      useGameStore.getState().setSelectedStackId(null)
+    },
+    [selectMove]
+  )
+
+  const handleSplitDismiss = useCallback(() => {
+    setSplitPopover(null)
+    useGameStore.getState().setSelectedStackId(null)
+  }, [])
 
   // Handle return to lobby
   const handleReturnToLobby = useCallback(() => {
@@ -98,12 +135,24 @@ export function GameBoard({
   return (
     <div className="flex flex-col lg:flex-row h-full min-h-[600px] gap-4 p-4">
       {/* Main game board area */}
-      <div className="flex-1 relative bg-gray-100 dark:bg-gray-900 rounded-xl overflow-hidden">
+      <div ref={boardAreaRef} className="flex-1 relative bg-gray-100 dark:bg-gray-900 rounded-xl overflow-hidden">
         <GameCanvas
           onTokenClick={handleTokenClick}
           onInitialized={handlePixiInitialized}
           className="w-full h-full min-h-[400px] lg:min-h-0"
         />
+
+        {/* Split popover */}
+        {splitPopover && (
+          <SplitPopover
+            x={splitPopover.x}
+            y={splitPopover.y}
+            options={splitPopover.options}
+            playerColor={splitPopover.playerColor}
+            onSelect={handleSplitSelect}
+            onDismiss={handleSplitDismiss}
+          />
+        )}
 
         {/* Animation overlay indicator */}
         {isAnimating && (
@@ -134,7 +183,6 @@ export function GameBoard({
       </div>
 
       {/* Modals */}
-      <MoveChoiceModal onSelectMove={selectMove} />
       <CaptureChoiceModal onSelectChoice={selectCaptureChoice} />
       <VictoryScreen onReturnToLobby={handleReturnToLobby} />
 

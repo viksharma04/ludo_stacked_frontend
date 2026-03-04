@@ -7,7 +7,7 @@ import { useGameStore } from '@/stores/gameStore'
 
 interface UsePixiAppOptions {
   containerRef: React.RefObject<HTMLDivElement | null>
-  onTokenClick?: (tokenId: string) => void
+  onTokenClick?: (tokenId: string, screenX: number, screenY: number) => void
 }
 
 interface UsePixiAppReturn {
@@ -53,9 +53,9 @@ export function usePixiApp({
         }
 
         // Set up token click handler
-        app.setTokenClickHandler((tokenId) => {
+        app.setTokenClickHandler((tokenId, screenX, screenY) => {
           if (onTokenClickRef.current) {
-            onTokenClickRef.current(tokenId)
+            onTokenClickRef.current(tokenId, screenX, screenY)
           }
         })
 

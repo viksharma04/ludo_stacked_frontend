@@ -7,7 +7,7 @@ import type { AnimationController } from '@/lib/pixi/AnimationController'
 import type { PixiApp } from '@/lib/pixi/PixiApp'
 
 interface GameCanvasProps {
-  onTokenClick?: (tokenId: string) => void
+  onTokenClick?: (tokenId: string, screenX: number, screenY: number) => void
   onInitialized?: (pixiApp: PixiApp, animationController: AnimationController) => void
   className?: string
 }

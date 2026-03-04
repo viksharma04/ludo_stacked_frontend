@@ -1,6 +1,15 @@
 import type { Stack, Player, RollMoveGroup, LegalMoveGroup } from '@/types/game'
 
 /**
+ * Represents a resolved move option for a clicked stack.
+ * Pairs a roll value with the possible move IDs (stack or sub-stack splits).
+ */
+export interface MoveOption {
+  roll: number
+  moves: string[] // The moves array from LegalMoveGroup
+}
+
+/**
  * Flatten available_moves to get all unique selectable stack IDs
  */
 export function flattenAvailableMoves(moves: RollMoveGroup[]): string[] {
@@ -30,6 +39,26 @@ export function getRollsForStack(
     }
   }
   return rolls
+}
+
+/**
+ * Get all move options for a clicked stack across all available rolls.
+ * Returns MoveOption[] with roll value + moves array from each matching LegalMoveGroup.
+ */
+export function getMoveOptionsForStack(
+  stackId: string,
+  availableMoves: RollMoveGroup[]
+): MoveOption[] {
+  const options: MoveOption[] = []
+  for (const rollGroup of availableMoves) {
+    for (const moveGroup of rollGroup.move_groups) {
+      if (moveGroup.stack_id === stackId) {
+        options.push({ roll: rollGroup.roll, moves: moveGroup.moves })
+        break
+      }
+    }
+  }
+  return options
 }
 
 /**

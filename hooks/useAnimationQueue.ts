@@ -15,25 +15,38 @@ interface UseAnimationQueueOptions {
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms))
 
-// Extract stack IDs that were animated from an event (for cleanup)
+// Build composite key for animating token tracking: `${playerId}:${stackId}`
+function makeCompositeKey(playerId: string, stackId: string): string {
+  return `${playerId}:${stackId}`
+}
+
+// Extract composite keys (playerId:stackId) that were animated from an event (for cleanup)
 function getAnimatedStackIds(event: GameEvent): string[] {
   switch (event.event_type) {
-    case 'stack_moved':
-      return [(event as { stack_id: string }).stack_id]
-    case 'stack_exited_hell':
-      return [(event as { stack_id: string }).stack_id]
-    case 'stack_reached_heaven':
-      return [(event as { stack_id: string }).stack_id]
-    case 'stack_captured':
+    case 'stack_moved': {
+      const e = event as { player_id: string; stack_id: string }
+      return [makeCompositeKey(e.player_id, e.stack_id)]
+    }
+    case 'stack_exited_hell': {
+      const e = event as { player_id: string; stack_id: string }
+      return [makeCompositeKey(e.player_id, e.stack_id)]
+    }
+    case 'stack_reached_heaven': {
+      const e = event as { player_id: string; stack_id: string }
+      return [makeCompositeKey(e.player_id, e.stack_id)]
+    }
+    case 'stack_captured': {
+      const e = event as { capturing_player_id: string; capturing_stack_id: string; captured_player_id: string; captured_stack_id: string }
       return [
-        (event as { capturing_stack_id: string }).capturing_stack_id,
-        (event as { captured_stack_id: string }).captured_stack_id,
+        makeCompositeKey(e.capturing_player_id, e.capturing_stack_id),
+        makeCompositeKey(e.captured_player_id, e.captured_stack_id),
       ]
+    }
     case 'stack_update': {
-      const e = event as { add_stacks?: { stack_id: string }[]; remove_stacks?: { stack_id: string }[] }
+      const e = event as { player_id: string; add_stacks?: { stack_id: string }[]; remove_stacks?: { stack_id: string }[] }
       const ids: string[] = []
-      if (e.add_stacks) ids.push(...e.add_stacks.map(s => s.stack_id))
-      if (e.remove_stacks) ids.push(...e.remove_stacks.map(s => s.stack_id))
+      if (e.add_stacks) ids.push(...e.add_stacks.map(s => makeCompositeKey(e.player_id, s.stack_id)))
+      if (e.remove_stacks) ids.push(...e.remove_stacks.map(s => makeCompositeKey(e.player_id, s.stack_id)))
       return ids
     }
     default:

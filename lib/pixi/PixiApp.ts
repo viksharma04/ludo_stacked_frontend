@@ -139,7 +139,8 @@ export class PixiApp {
       (state) => state.selectedStackId,
       (selectedId) => {
         if (this.tokenRenderer) {
-          this.tokenRenderer.setSelectedToken(selectedId)
+          const myPlayerId = useGameStore.getState().myPlayerId
+          this.tokenRenderer.setSelectedToken(selectedId, myPlayerId)
         }
       }
     )
@@ -194,7 +195,7 @@ export class PixiApp {
   }
 
   // Set stack click handler
-  setTokenClickHandler(handler: (stackId: string) => void): void {
+  setTokenClickHandler(handler: (stackId: string, screenX: number, screenY: number) => void): void {
     if (this.tokenRenderer) {
       this.tokenRenderer.setClickHandler(handler)
     }
