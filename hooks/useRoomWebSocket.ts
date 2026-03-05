@@ -19,6 +19,12 @@ const RECONNECT_BASE_DELAY_MS = 1000
 const RECONNECT_MAX_DELAY_MS = 30000
 const RECONNECT_MAX_ATTEMPTS = 5
 
+interface GameMessage {
+  type: string
+  request_id?: string
+  payload?: unknown
+}
+
 interface UseRoomWebSocketOptions {
   accessToken: string
   roomCode: string
@@ -26,6 +32,7 @@ interface UseRoomWebSocketOptions {
   onRoomUpdated?: (room: RoomSnapshot) => void
   onRoomClosed?: (payload: RoomClosedPayload) => void
   onError?: (payload: ErrorPayload) => void
+  onGameMessage?: (message: GameMessage) => void
 }
 
 interface UseRoomWebSocketReturn {
@@ -35,6 +42,7 @@ interface UseRoomWebSocketReturn {
   toggleReady: () => void
   leaveRoom: () => void
   disconnect: () => void
+  sendGameMessage: (message: GameMessage) => void
 }
 
 export function useRoomWebSocket({
@@ -44,6 +52,7 @@ export function useRoomWebSocket({
   onRoomUpdated,
   onRoomClosed,
   onError,
+  onGameMessage,
 }: UseRoomWebSocketOptions): UseRoomWebSocketReturn {
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -61,6 +70,7 @@ export function useRoomWebSocket({
   const onRoomUpdatedRef = useRef(onRoomUpdated)
   const onRoomClosedRef = useRef(onRoomClosed)
   const onErrorRef = useRef(onError)
+  const onGameMessageRef = useRef(onGameMessage)
 
   // Store credentials in refs for reconnection
   const accessTokenRef = useRef(accessToken)
@@ -71,7 +81,8 @@ export function useRoomWebSocket({
     onRoomUpdatedRef.current = onRoomUpdated
     onRoomClosedRef.current = onRoomClosed
     onErrorRef.current = onError
-  }, [onConnected, onRoomUpdated, onRoomClosed, onError])
+    onGameMessageRef.current = onGameMessage
+  }, [onConnected, onRoomUpdated, onRoomClosed, onError, onGameMessage])
 
   useEffect(() => {
     accessTokenRef.current = accessToken
@@ -206,6 +217,13 @@ export function useRoomWebSocket({
             case 'pong':
               // Keepalive response, no action needed
               break
+            // Game-related messages
+            case 'game_started':
+            case 'game_events':
+            case 'game_state':
+            case 'game_error':
+              onGameMessageRef.current?.(message as unknown as GameMessage)
+              break
           }
         } catch {
           console.error('Failed to parse WebSocket message')
@@ -288,6 +306,12 @@ export function useRoomWebSocket({
     shouldReconnectRef.current = false
   }, [sendMessage])
 
+  const sendGameMessage = useCallback((message: GameMessage) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(message))
+    }
+  }, [])
+
   // Connect on mount, disconnect on unmount
   useEffect(() => {
     shouldReconnectRef.current = true
@@ -305,5 +329,6 @@ export function useRoomWebSocket({
     toggleReady,
     leaveRoom,
     disconnect,
+    sendGameMessage,
   }
 }

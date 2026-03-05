@@ -3,10 +3,7 @@
 
 // WebSocket close codes
 export const WS_CLOSE_CODES = {
-  AUTH_FAILED: 4001,
-  AUTH_EXPIRED: 4002,
-  ROOM_NOT_FOUND: 4003,
-  ROOM_ACCESS_DENIED: 4004,
+  GOING_AWAY: 1001,
   AUTH_TIMEOUT: 4005,
 } as const
 
@@ -31,6 +28,14 @@ export type MessageType =
   | 'toggle_ready'
   | 'leave_room'
   | 'room_closed'
+  // Game-related messages
+  | 'start_game'
+  | 'game_started'
+  | 'game_action'
+  | 'game_events'
+  | 'game_state'
+  | 'game_error'
+  | 'request_state'
 
 // Client to server message envelope
 export interface WSClientMessage {

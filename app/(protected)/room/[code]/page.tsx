@@ -3,6 +3,7 @@
 import { use, useState } from 'react'
 import { RoomProvider, useRoom } from '@/contexts/RoomContext'
 import { SeatCard } from '@/components/room/SeatCard'
+import { GameBoard } from '@/components/game/GameBoard'
 
 interface RoomPageProps {
   params: Promise<{ code: string }>
@@ -18,8 +19,11 @@ function RoomContent() {
     isHost,
     isReady,
     canStartGame,
+    isInGame,
     toggleReady,
     leaveRoom,
+    startGame,
+    sendGameMessage,
   } = useRoom()
 
   const [copied, setCopied] = useState(false)
@@ -36,7 +40,7 @@ function RoomContent() {
   }
 
   const handleStartGame = () => {
-    // Start game functionality will be implemented later
+    startGame()
   }
 
   // Loading state
@@ -107,6 +111,19 @@ function RoomContent() {
   const paddedSeats = Array.from({ length: room.max_players }, (_, index) => {
     return room.seats.find((s) => s.seat_index === index) || null
   })
+
+  // Show game board when in game
+  if (isInGame && userId) {
+    return (
+      <div className="h-screen bg-gray-50 dark:bg-gray-900">
+        <GameBoard
+          sendMessage={sendGameMessage}
+          myPlayerId={userId}
+          onReturnToLobby={() => leaveRoom()}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

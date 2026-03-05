@@ -39,49 +39,115 @@ npm run dev
 
 Visit http://localhost:3000
 
+## Tech Stack
+
+- **Framework**: Next.js 16 with App Router
+- **UI**: React 19, Tailwind CSS v4
+- **State Management**: Zustand with Immer middleware
+- **Game Rendering**: Pixi.js 8
+- **Authentication**: Supabase Auth
+- **Real-time**: WebSocket for game state synchronization
+- **Notifications**: Sonner for toast notifications
+
 ## Project Structure
 
 ```
 app/
-├── (auth)/              # Public auth pages (signin, signup)
-├── (protected)/         # Authenticated routes (lobby, room)
-│   ├── lobby/           # Lobby page
-│   └── room/[code]/     # Dynamic room page
-├── api/auth/            # API routes for auth
-├── auth/callback/       # OAuth callback handler
-├── layout.tsx           # Root layout with providers
-└── page.tsx             # Landing page
+├── (auth)/                    # Public auth pages
+│   ├── signin/page.tsx        # Sign in page
+│   ├── signup/page.tsx        # Sign up page
+│   └── layout.tsx             # Centered card layout
+├── (protected)/               # Authenticated routes
+│   ├── lobby/page.tsx         # Game lobby
+│   ├── room/[code]/page.tsx   # Dynamic room/game page
+│   └── layout.tsx             # Auth guard layout
+├── api/auth/me/route.ts       # User info API endpoint
+├── auth/callback/route.ts     # OAuth callback handler
+├── layout.tsx                 # Root layout with providers
+├── page.tsx                   # Landing page
+└── globals.css                # Global styles & CSS variables
+
 components/
-├── auth/                # Auth-related components
-├── landing/             # Landing page components
-├── lobby/               # Lobby components (ProfileDropdown, LobbyActions, modals)
-│   ├── CreateRoomModal.tsx
-│   ├── EditProfileModal.tsx
-│   ├── JoinRoomModal.tsx
-│   ├── LobbyActions.tsx
-│   └── ProfileDropdown.tsx
-└── room/                # Room components
-    └── SeatCard.tsx     # Player seat display
+├── auth/                      # Authentication components
+│   ├── SignInForm.tsx
+│   ├── SignUpForm.tsx
+│   └── GoogleSignInButton.tsx
+├── game/                      # Game UI components
+│   ├── GameBoard.tsx          # Main game orchestration
+│   ├── GameCanvas.tsx         # Pixi.js canvas wrapper
+│   ├── GameHUD.tsx            # Turn info & player progress
+│   ├── DicePanel.tsx          # Dice rolling interface
+│   ├── EventLog.tsx           # Game event history
+│   ├── MoveChoiceModal.tsx    # Token selection modal
+│   ├── CaptureChoiceModal.tsx # Capture/stack choice modal
+│   ├── VictoryScreen.tsx      # Game end screen
+│   └── TurnTransitionToast.tsx # Turn change notifications
+├── landing/                   # Landing page components
+│   ├── Hero.tsx
+│   ├── Features.tsx
+│   ├── HowItWorks.tsx
+│   ├── Footer.tsx
+│   └── StackVisual.tsx
+├── lobby/                     # Lobby components
+│   ├── LobbyActions.tsx       # Create/join room cards
+│   ├── CreateRoomModal.tsx    # Room creation modal
+│   ├── JoinRoomModal.tsx      # Room join modal
+│   ├── ProfileDropdown.tsx    # User profile menu
+│   └── EditProfileModal.tsx   # Display name editor
+├── room/                      # Room components
+│   └── SeatCard.tsx           # Player seat display
+└── ThemeToggle.tsx            # Dark/light mode toggle
+
 contexts/
-├── AuthContext.tsx      # Authentication state management
-├── ProfileContext.tsx   # User profile state management
-├── RoomContext.tsx      # Room state management
-└── ThemeContext.tsx     # Theme state management
+├── AuthContext.tsx            # Authentication state & methods
+├── ProfileContext.tsx         # User profile management
+├── RoomContext.tsx            # Room state & game coordination
+└── ThemeContext.tsx           # Theme persistence
+
 hooks/
-└── useRoomWebSocket.ts  # WebSocket hook for real-time room updates
+├── useRoomWebSocket.ts        # WebSocket connection management
+├── useGameWebSocket.ts        # Game-specific message handling
+├── usePixiApp.ts              # Pixi.js lifecycle management
+└── useAnimationQueue.ts       # Animation sequencing
+
 lib/
 ├── api/
-│   └── client.ts        # Backend API client
+│   └── client.ts              # Backend API client
+├── game/                      # Game logic utilities
+│   ├── constants.ts           # Animation durations, colors, Z-layers
+│   ├── boardGeometry.ts       # Board position calculations
+│   ├── eventProcessor.ts      # Game event handling
+│   ├── eventLogUtils.ts       # Event log formatting
+│   ├── legalMoveParser.ts     # Move validation & parsing
+│   └── sequenceManager.ts     # Event sequence management
+├── pixi/                      # Pixi.js rendering
+│   ├── PixiApp.ts             # Main application manager
+│   ├── BoardRenderer.ts       # Board rendering
+│   ├── TokenRenderer.ts       # Token & stack rendering
+│   └── AnimationController.ts # Animation playback
 └── supabase/
-    ├── client.ts        # Browser Supabase client
-    └── server.ts        # Server Supabase client
+    ├── client.ts              # Browser Supabase client
+    └── server.ts              # Server Supabase client
+
+stores/
+├── gameStore.ts               # Combined Zustand store
+├── selectors.ts               # Memoized store selectors
+└── slices/                    # Store slices
+    ├── boardSlice.ts          # Board & player state
+    ├── turnSlice.ts           # Turn & roll state
+    ├── animationSlice.ts      # Animation queue
+    ├── uiSlice.ts             # UI state (modals, highlights)
+    └── eventLogSlice.ts       # Event log state
+
 types/
-├── auth.ts              # Auth type definitions
-├── profile.ts           # Profile type definitions
-└── room.ts              # Room and WebSocket type definitions
-specs/
-├── backend_room_logic.md          # Room endpoints documentation
-└── backend_room_logic_schemas.md  # Room schema reference
+├── game.ts                    # Game state, events, animations
+├── auth.ts                    # Authentication types
+├── profile.ts                 # User profile types
+└── room.ts                    # Room & WebSocket types
+
+specs/                         # Game specification documents
+├── rolls_granted.md           # Roll mechanics documentation
+└── ...
 ```
 
 ## Authentication
@@ -98,13 +164,27 @@ Configure these URLs in Google Cloud Console:
 - Redirect URI: `https://<project>.supabase.co/auth/v1/callback`
 - Redirect URI: `http://localhost:3000/auth/callback`
 
-## Backend
+## Game Features
 
-This frontend works with a separate FastAPI backend running on http://localhost:8000.
+### Core Gameplay
+- **Token Stacking**: Stack your tokens together for strategic advantage
+- **Stack Movement**: Stacks move roll/height squares (e.g., roll 6 with 2-stack = move 3)
+- **Captures**: Equal or greater stack heights can capture opponent tokens
+- **Safe Spaces**: Protected positions where tokens cannot be captured
+- **Bonus Rolls**: Rolling 6 or capturing tokens grants extra rolls
+
+### UI Features
+- **Real-time Board**: Pixi.js-powered game board with smooth animations
+- **Animation Queue**: Sequential playback of game events
+- **Event Log**: Scrolling history of game events
+- **Turn Transitions**: Toast notifications for turn changes
+- **Victory Screen**: Game end display with final rankings
+
+## Backend Integration
 
 ### REST API Communication
 
-The frontend communicates with the backend via `lib/api/client.ts`, which handles:
+The frontend communicates with the backend via `lib/api/client.ts`:
 - Authentication via Bearer token (from Supabase session)
 - Profile endpoints (`GET /api/v1/profile`, `PATCH /api/v1/profile`)
 - Room endpoints (`POST /api/v1/rooms`, `POST /api/v1/rooms/join`)
@@ -113,39 +193,96 @@ The frontend communicates with the backend via `lib/api/client.ts`, which handle
 
 ### WebSocket Communication
 
-The frontend uses WebSockets for real-time room updates:
-- WebSocket endpoint: `ws://localhost:8000/api/v1/ws`
-- Authentication via message after connection (not query parameters):
-  1. Connect to WebSocket endpoint
-  2. Send `authenticate` message with `token` and `room_code` in payload
-  3. Receive `authenticated` response on success or `error` on failure
-- Managed by `useRoomWebSocket` hook
-- Supports automatic reconnection with exponential backoff
-- Heartbeat/keepalive via ping/pong messages (works before authentication)
-- Real-time updates for player connections, ready states, and room status
+Real-time game updates via WebSocket:
+- **Endpoint**: `ws://localhost:8000/api/v1/ws`
+- **Authentication**: Token sent in message payload after connection
+- **Reconnection**: Exponential backoff (1s base, 30s max, 5 attempts)
+- **Keepalive**: Ping/pong every 25 seconds
 
-### Room Features
+#### Message Types
 
-- **Create Room**: Create a new game room for 2-4 players
-- **Join Room**: Join an existing room using a 6-character code
-- **Room Lobby**: 
-  - Real-time player status display
-  - Connection indicators for each player
-  - Host designation and controls
-  - Ready/Not Ready system
-  - Host can start game when all players are ready
-  - Room closes when host leaves
-- **Room Navigation**: Dynamic routing (`/room/[code]`)
+| Type | Direction | Description |
+|------|-----------|-------------|
+| `authenticate` | Client → Server | Initial auth with token and room code |
+| `game_action` | Client → Server | Player actions (roll, move, capture_choice) |
+| `game_events` | Server → Client | Game event broadcasts |
+| `game_state` | Server → Client | Full state sync on reconnect |
+| `game_error` | Server → Client | Error responses |
+| `room_updated` | Server → Client | Room state changes |
+
+## State Management
+
+### Zustand Store
+
+Game state is managed via a centralized Zustand store with 5 slices:
+
+| Slice | Purpose |
+|-------|---------|
+| `BoardSlice` | Game phase, players, tokens, stacks, board setup |
+| `TurnSlice` | Current turn, legal moves, capture options, rolls |
+| `AnimationSlice` | Animation queue, animating token tracking |
+| `UiSlice` | Dice state, highlights, modals, victory screen |
+| `EventLogSlice` | Game event history (max 50 entries) |
+
+### Selectors
+
+40+ memoized selectors in `stores/selectors.ts`:
+- `usePhase`, `usePlayers`, `useCurrentTurn`
+- `useCurrentPlayer`, `useIsMyTurn`, `useMyPlayer`
+- `useCanRoll`, `useNeedsMoveSelection`, `useNeedsCaptureChoice`
+- `useTokenById`, `useStackById`
+- And many more...
 
 ## UI Features
 
-- **Theme System**: Light/dark mode with system detection
-- **Cursor Management**: Proper cursor states for interactive elements via `.btn` class
-- **User Selection**: Text selection disabled by default, enabled for input fields
+- **Theme System**: Light/dark mode with localStorage persistence
 - **Responsive Design**: Mobile-first approach with Tailwind CSS
-- **Real-time Updates**: WebSocket-powered live room state
+- **Real-time Updates**: WebSocket-powered live game state
+- **User Selection**: Text selection disabled by default, enabled for inputs
+- **Cursor Management**: Proper cursor states for interactive elements
+
+## Development
+
+### Commands
+
+```bash
+npm run dev       # Start development server
+npm run build     # Build for production
+npm run start     # Run production server
+npm run lint      # Run ESLint
+```
+
+### Code Conventions
+
+- Path alias: `@/*` maps to project root
+- TypeScript strict mode enabled
+- Tailwind CSS v4 for styling
+- Roboto Mono font (monospace)
+- Light theme default, dark mode via `.dark` class
+
+### Accent Colors
+
+Use CSS variable-based accent colors instead of hardcoded values:
+- `bg-accent`, `hover:bg-accent-hover`
+- `text-accent`, `focus:ring-accent`
+
+Configured in `app/globals.css` via `--accent` and `--accent-hover` CSS variables.
+
+## Documentation
+
+### Architecture & Reference
+- `docs/ARCHITECTURE.md` - Comprehensive technical architecture documentation
+- `docs/COMPONENTS.md` - Detailed component reference guide
+- `CLAUDE.md` - Project guidelines for Claude Code
+
+### Specifications
+- `frontend_game_integration.md` - WebSocket protocol and game events
+- `game_start_implementation.md` - Game start flow
+- `specs/rolls_granted.md` - Roll mechanics specification
 
 ## Learn More
 
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Supabase Auth Documentation](https://supabase.com/docs/guides/auth)
+- [Zustand Documentation](https://zustand.docs.pmnd.rs/)
+- [Pixi.js Documentation](https://pixijs.com/guides)
