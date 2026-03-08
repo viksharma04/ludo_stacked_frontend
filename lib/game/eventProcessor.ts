@@ -88,18 +88,13 @@ function getAnimatedStackIds(event: GameEvent): string[] {
   }
 }
 
-// Helper to enqueue animation and pre-register stack IDs
-function enqueueWithStackRegistration(
-  store: GameStore,
-  type: AnimationType,
-  event: GameEvent,
-  duration: number
-): void {
+// Pre-register stack IDs as animating BEFORE any store updates
+// to prevent position jumps when Zustand subscribers fire
+function registerAnimatingStacks(store: GameStore, event: GameEvent): void {
   const stackIds = getAnimatedStackIds(event)
   if (stackIds.length > 0) {
     store.addAnimatingTokens(stackIds)
   }
-  store.enqueueAnimation(createAnimationItem(type, event, duration))
 }
 
 // Event handlers
@@ -187,6 +182,7 @@ const handlers: Record<string, EventHandler<any>> = {
   },
 
   stack_moved: (event: StackMovedEvent, store: GameStore) => {
+    registerAnimatingStacks(store, event)
     store.updateStackById(event.player_id, event.stack_id, {
       state: event.to_state,
       progress: event.to_progress,
@@ -196,23 +192,25 @@ const handlers: Record<string, EventHandler<any>> = {
     const duration =
       Math.abs(event.to_progress - event.from_progress) *
       ANIMATION_DURATIONS.STACK_MOVE_PER_SQUARE
-    enqueueWithStackRegistration(store, 'stack_move', event, duration)
+    store.enqueueAnimation(createAnimationItem('stack_move', event, duration))
   },
 
   stack_exited_hell: (event: StackExitedHellEvent, store: GameStore) => {
+    registerAnimatingStacks(store, event)
     store.updateStackById(event.player_id, event.stack_id, {
       state: 'road',
       progress: 0,
     })
     store.consumeRoll(event.roll_used)
-    enqueueWithStackRegistration(store, 'stack_exit_hell', event, ANIMATION_DURATIONS.STACK_EXIT_HELL)
+    store.enqueueAnimation(createAnimationItem('stack_exit_hell', event, ANIMATION_DURATIONS.STACK_EXIT_HELL))
   },
 
   stack_reached_heaven: (event: StackReachedHeavenEvent, store: GameStore) => {
+    registerAnimatingStacks(store, event)
     store.updateStackById(event.player_id, event.stack_id, {
       state: 'heaven',
     })
-    enqueueWithStackRegistration(store, 'stack_reach_heaven', event, ANIMATION_DURATIONS.STACK_REACH_HEAVEN)
+    store.enqueueAnimation(createAnimationItem('stack_reach_heaven', event, ANIMATION_DURATIONS.STACK_REACH_HEAVEN))
   },
 
   stack_captured: (event: StackCapturedEvent, store: GameStore) => {
@@ -221,17 +219,23 @@ const handlers: Record<string, EventHandler<any>> = {
         extra_rolls: (store.currentTurn?.extra_rolls ?? 0) + 1,
       })
     }
-    enqueueWithStackRegistration(store, 'stack_capture', event, ANIMATION_DURATIONS.STACK_CAPTURE)
+    registerAnimatingStacks(store, event)
+    store.updateStackById(event.captured_player_id, event.captured_stack_id, {
+      state: 'hell',
+      progress: 0,
+    })
+    store.enqueueAnimation(createAnimationItem('stack_capture', event, ANIMATION_DURATIONS.STACK_CAPTURE))
   },
 
   stack_update: (event: StackUpdateEvent, store: GameStore) => {
+    registerAnimatingStacks(store, event)
     for (const removed of event.remove_stacks) {
       store.removeStack(event.player_id, removed.stack_id)
     }
     for (const added of event.add_stacks) {
       store.addStack(event.player_id, added)
     }
-    enqueueWithStackRegistration(store, 'stack_update', event, ANIMATION_DURATIONS.STACK_UPDATE)
+    store.enqueueAnimation(createAnimationItem('stack_update', event, ANIMATION_DURATIONS.STACK_UPDATE))
   },
 
   awaiting_choice: (event: AwaitingChoiceEvent, store: GameStore) => {

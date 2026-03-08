@@ -83,11 +83,13 @@ export function GameBoard({
 
       if (options.length === 0) return
 
-      if (options.length === 1 && options[0].moves.length === 1) {
-        // Single roll, single move option — auto-send
+      const hasSplits = options.some(opt => opt.moves.length > 1)
+
+      if (!hasSplits) {
+        // No split options — auto-send with the first available roll
         selectMove(options[0].moves[0], options[0].roll)
       } else {
-        // Multiple rolls or split options — show popover at stack position
+        // Split options available — show popover at stack position
         const store = useGameStore.getState()
         const myPlayer = store.players.find(p => p.player_id === store.myPlayerId)
 

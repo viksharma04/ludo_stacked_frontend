@@ -151,6 +151,8 @@ export function DicePanel({ onRoll, className = '' }: DicePanelProps) {
         return 'You rolled a 6! Roll again!'
       case 'capture_bonus':
         return 'Capture bonus! Roll again!'
+      case 'reached_heaven':
+        return 'Reached heaven! Roll again!'
       default:
         return null
     }

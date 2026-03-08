@@ -86,7 +86,7 @@ const MAIN_TRACK = createTrack()
 // This should match the backend's squares_to_homestretch value
 export const TRACK_LENGTH = MAIN_TRACK.length
 
-// Homestretch positions for each player (6 squares leading to center)
+// Homestretch positions for each player (5 squares before the center win spot)
 const HOMESTRETCH_POSITIONS: Record<PlayerColor, Point[]> = {
   green: [
     { x: 13, y: 7 },
@@ -94,7 +94,6 @@ const HOMESTRETCH_POSITIONS: Record<PlayerColor, Point[]> = {
     { x: 11, y: 7 },
     { x: 10, y: 7 },
     { x: 9, y: 7 },
-    { x: 8, y: 7 },
   ],
   yellow: [
     { x: 7, y: 1 },
@@ -102,7 +101,6 @@ const HOMESTRETCH_POSITIONS: Record<PlayerColor, Point[]> = {
     { x: 7, y: 3 },
     { x: 7, y: 4 },
     { x: 7, y: 5 },
-    { x: 7, y: 6 },
   ],
   blue: [
     { x: 7, y: 13 },
@@ -110,7 +108,6 @@ const HOMESTRETCH_POSITIONS: Record<PlayerColor, Point[]> = {
     { x: 7, y: 11 },
     { x: 7, y: 10 },
     { x: 7, y: 9 },
-    { x: 7, y: 8 },
   ],
   red: [
     { x: 1, y: 7 },
@@ -118,7 +115,6 @@ const HOMESTRETCH_POSITIONS: Record<PlayerColor, Point[]> = {
     { x: 3, y: 7 },
     { x: 4, y: 7 },
     { x: 5, y: 7 },
-    { x: 6, y: 7 },
   ],
 }
 

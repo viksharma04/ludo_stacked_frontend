@@ -28,6 +28,7 @@ export class TokenRenderer {
   private stacks: Map<string, StackSprite> = new Map()
   private highlightedKeys: Set<string> = new Set()
   private animatingTokenIds: Set<string> = new Set()
+  private pendingAnimationKeys: Set<string> = new Set()
   private selectedKey: string | null = null
   private clickHandler: ((stackId: string, screenX: number, screenY: number) => void) | null = null
   private pulseTime = 0
@@ -93,8 +94,17 @@ export class TokenRenderer {
           )
           this.stacks.set(key, sprite)
           this.container.addChild(sprite.graphics)
+
+          // Hide newly created sprites that are pending animation (e.g. merge results)
+          if (isAnimating) {
+            this.pendingAnimationKeys.add(key)
+          }
         } else {
           this.updateBadgeCount(sprite, stack.height)
+          // Clear pending state once animation is done
+          if (!isAnimating) {
+            this.pendingAnimationKeys.delete(key)
+          }
         }
 
         // Update position (skip if animating)
@@ -110,8 +120,9 @@ export class TokenRenderer {
           sprite.graphics.y = position.y
         }
 
-        // Hide stacks in heaven after animation
-        sprite.graphics.visible = stack.state !== 'heaven' || isAnimating
+        // Hide stacks in heaven after animation; hide pending animation sprites
+        const isPending = this.pendingAnimationKeys.has(key)
+        sprite.graphics.visible = (stack.state !== 'heaven' || isAnimating) && !isPending
       })
     })
 
