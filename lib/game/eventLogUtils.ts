@@ -92,7 +92,7 @@ function createLogData(
         return null
       }
       const playerName = getPlayerName(e.player_id, players)
-      const reasonText = e.reason === 'rolled_six' ? 'rolled a 6' : 'capture bonus'
+      const reasonText = e.reason === 'rolled_six' ? 'rolled a 6' : e.reason === 'reached_heaven' ? 'reached heaven' : 'capture bonus'
       return {
         message: `${playerName} gets extra roll (${reasonText})`,
         severity: 'success',

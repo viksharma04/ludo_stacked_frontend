@@ -1,11 +1,11 @@
 'use client'
 
-import { createContext, useContext, useCallback, useState, useMemo, useRef } from 'react'
+import { createContext, useContext, useCallback, useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRoomWebSocket } from '@/hooks/useRoomWebSocket'
-import { useGameStore } from '@/stores/gameStore'
+import { useGameStore, resetGameStore } from '@/stores/gameStore'
 import { processEvents, applyGameState } from '@/lib/game/eventProcessor'
 import { createSequenceManager, type SequenceManager } from '@/lib/game/sequenceManager'
 import type {
@@ -52,6 +52,11 @@ export function RoomProvider({ children, roomCode }: RoomProviderProps) {
   const [isInGame, setIsInGame] = useState(false)
 
   const sequenceManagerRef = useRef<SequenceManager>(createSequenceManager())
+
+  // Reset game store when entering a new room to clear stale state (e.g. victory screen)
+  useEffect(() => {
+    resetGameStore()
+  }, [roomCode])
 
   const handleConnected = useCallback((payload: ConnectedPayload) => {
     setRoom(payload.room)

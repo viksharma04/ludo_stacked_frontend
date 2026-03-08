@@ -154,7 +154,7 @@ export interface BaseGameEvent {
 }
 
 // Roll Events
-export type RollGrantedReason = 'turn_start' | 'rolled_six' | 'capture_bonus'
+export type RollGrantedReason = 'turn_start' | 'rolled_six' | 'capture_bonus' | 'reached_heaven'
 
 export interface RollGrantedEvent extends BaseGameEvent {
   event_type: 'roll_granted'
