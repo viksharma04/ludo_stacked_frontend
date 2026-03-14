@@ -52,6 +52,8 @@ export interface Turn {
 }
 
 export interface BoardSetup {
+  grid_length: number
+  loop_length: number
   squares_to_win: number
   squares_to_homestretch: number
   starting_positions: number[]
