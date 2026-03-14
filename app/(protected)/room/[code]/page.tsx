@@ -1,9 +1,11 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useState, useCallback } from 'react'
 import { RoomProvider, useRoom } from '@/contexts/RoomContext'
 import { SeatCard } from '@/components/room/SeatCard'
 import { GameBoard } from '@/components/game/GameBoard'
+import { GameSettingsPanel } from '@/components/room/GameSettingsPanel'
+import type { GameSettings } from '@/types/room'
 
 interface RoomPageProps {
   params: Promise<{ code: string }>
@@ -27,6 +29,14 @@ function RoomContent() {
   } = useRoom()
 
   const [copied, setCopied] = useState(false)
+  const [gameSettings, setGameSettings] = useState<GameSettings>({
+    grid_length: 6,
+    get_out_rolls: [6],
+  })
+
+  const handleSettingsChange = useCallback((settings: GameSettings) => {
+    setGameSettings(settings)
+  }, [])
 
   const handleCopyCode = async () => {
     if (!room) return
@@ -40,7 +50,7 @@ function RoomContent() {
   }
 
   const handleStartGame = () => {
-    startGame()
+    startGame(gameSettings)
   }
 
   // Loading state
@@ -238,6 +248,8 @@ function RoomContent() {
         {/* Start Game button (host only) */}
         {isHost && (
           <div className="mt-6">
+            <GameSettingsPanel onSettingsChange={handleSettingsChange} />
+            <div className="mt-4" />
             <button
               onClick={handleStartGame}
               disabled={!canStartGame}
