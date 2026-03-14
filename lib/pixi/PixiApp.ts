@@ -14,6 +14,7 @@ export class PixiApp {
   private resizeObserver: ResizeObserver | null = null
   private isInitialized = false
   private unsubscribers: (() => void)[] = []
+  private gridLength: number = 6
 
   constructor(container: HTMLElement) {
     this.container = container
@@ -39,7 +40,7 @@ export class PixiApp {
     this.container.appendChild(this.app.canvas)
 
     // Create geometry
-    this.geometry = createBoardGeometry(width, height, 20)
+    this.geometry = createBoardGeometry(width, height, 20, this.gridLength)
 
     // Create renderers
     this.boardRenderer = new BoardRenderer(this.app, this.geometry)
@@ -66,7 +67,7 @@ export class PixiApp {
     this.app.renderer.resize(width, height)
 
     // Recreate geometry with new dimensions
-    this.geometry = createBoardGeometry(width, height, 20)
+    this.geometry = createBoardGeometry(width, height, 20, this.gridLength)
     const state = useGameStore.getState()
 
     // Re-apply board setup to new geometry (needed for safe spaces)
@@ -113,6 +114,19 @@ export class PixiApp {
       (state) => state.boardSetup,
       (boardSetup) => {
         if (boardSetup && this.geometry) {
+          // Recreate geometry if grid_length changed
+          if (boardSetup.grid_length !== this.gridLength) {
+            this.gridLength = boardSetup.grid_length
+            const width = this.container.clientWidth || 800
+            const height = this.container.clientHeight || 800
+            this.geometry = createBoardGeometry(width, height, 20, this.gridLength)
+            if (this.boardRenderer) {
+              this.boardRenderer.setGeometry(this.geometry)
+            }
+            if (this.tokenRenderer) {
+              this.tokenRenderer.setGeometry(this.geometry)
+            }
+          }
           this.geometry.setBoardSetup(boardSetup)
           if (this.boardRenderer) {
             this.boardRenderer.render()
