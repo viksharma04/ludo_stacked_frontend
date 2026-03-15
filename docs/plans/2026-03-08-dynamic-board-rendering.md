@@ -1,4 +1,77 @@
+# Dynamic Board Rendering Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Replace all hardcoded board geometry (fixed at grid_length=6) with algorithmic generation from `grid_length` (range 3–12), so the Pixi.js board renders correctly for any board size.
+
+**Architecture:** `BoardGeometry` gains a `gridLength` constructor parameter. All track coordinates, homestretch positions, home positions, home area bounds, and heaven position are computed algorithmically at construction time rather than defined as module-level constants. `PixiApp` recreates geometry when `boardSetup` arrives with a new `grid_length`. All downstream renderers (`BoardRenderer`, `TokenRenderer`, `AnimationController`) work unchanged since they already consume geometry via methods.
+
+**Tech Stack:** TypeScript, Pixi.js, Zustand
+
+---
+
+### Task 1: Update BoardSetup type
+
+**Files:**
+- Modify: `types/game.ts:54-60`
+
+**Step 1: Add grid_length and loop_length to BoardSetup**
+
+Change the `BoardSetup` interface from:
+
+```typescript
+export interface BoardSetup {
+  squares_to_win: number
+  squares_to_homestretch: number
+  starting_positions: number[]
+  safe_spaces: number[]
+  get_out_rolls: number[]
+}
+```
+
+to:
+
+```typescript
+export interface BoardSetup {
+  grid_length: number
+  loop_length: number
+  squares_to_win: number
+  squares_to_homestretch: number
+  starting_positions: number[]
+  safe_spaces: number[]
+  get_out_rolls: number[]
+}
+```
+
+**Step 2: Verify no lint errors**
+
+Run: `npm run lint`
+Expected: PASS
+
+**Step 3: Commit**
+
+```bash
+git add types/game.ts
+git commit -m "feat: add grid_length and loop_length to BoardSetup type"
+```
+
+---
+
+### Task 2: Rewrite boardGeometry.ts with algorithmic generation
+
+**Files:**
+- Rewrite: `lib/game/boardGeometry.ts`
+
+**Context:** This is the core change. All hardcoded constants (`GRID_SIZE`, `MAIN_TRACK`, `HOMESTRETCH_POSITIONS`, `HOME_POSITIONS`, `HOME_AREA_BOUNDS`, `HEAVEN_POSITION`, `PLAYER_START_POSITIONS`, `TRACK_LENGTH`) are removed. Everything is computed from `gridLength` inside `BoardGeometry`.
+
+**Step 1: Replace the entire file**
+
+Replace `lib/game/boardGeometry.ts` with:
+
+```typescript
 import type { Point, BoardSetup, PlayerColor, StackState } from '@/types/game'
+
+const COLORS_IN_ORDER: PlayerColor[] = ['red', 'blue', 'green', 'yellow']
 
 // Generate the clockwise track around the cross-shaped board.
 // Each of the 4 quadrants has identical structure (rotated):
@@ -316,3 +389,170 @@ export function createBoardGeometry(
 ): BoardGeometry {
   return new BoardGeometry(canvasWidth, canvasHeight, padding, gridLength)
 }
+```
+
+**Step 2: Verify no lint errors**
+
+Run: `npm run lint`
+Expected: PASS (the unused `COLORS_IN_ORDER` will be flagged — remove it if so)
+
+**Step 3: Commit**
+
+```bash
+git add lib/game/boardGeometry.ts
+git commit -m "feat: rewrite boardGeometry with algorithmic generation from grid_length"
+```
+
+---
+
+### Task 3: Update PixiApp to use dynamic gridLength
+
+**Files:**
+- Modify: `lib/pixi/PixiApp.ts:8-16` (class properties)
+- Modify: `lib/pixi/PixiApp.ts:42` (init geometry creation)
+- Modify: `lib/pixi/PixiApp.ts:69` (handleResize geometry creation)
+- Modify: `lib/pixi/PixiApp.ts:112-123` (boardSetup subscription)
+
+**Step 1: Add gridLength property**
+
+After `private unsubscribers: (() => void)[] = []` (~line 16), add:
+
+```typescript
+private gridLength: number = 6
+```
+
+**Step 2: Update init() geometry creation**
+
+Change line 42 from:
+```typescript
+this.geometry = createBoardGeometry(width, height, 20)
+```
+to:
+```typescript
+this.geometry = createBoardGeometry(width, height, 20, this.gridLength)
+```
+
+**Step 3: Update handleResize() geometry creation**
+
+Change line 69 from:
+```typescript
+this.geometry = createBoardGeometry(width, height, 20)
+```
+to:
+```typescript
+this.geometry = createBoardGeometry(width, height, 20, this.gridLength)
+```
+
+**Step 4: Update boardSetup subscription to recreate geometry on gridLength change**
+
+Change the boardSetup subscription (~lines 112-123) from:
+
+```typescript
+const unsubBoardSetup = useGameStore.subscribe(
+  (state) => state.boardSetup,
+  (boardSetup) => {
+    if (boardSetup && this.geometry) {
+      this.geometry.setBoardSetup(boardSetup)
+      if (this.boardRenderer) {
+        this.boardRenderer.render()
+      }
+    }
+  },
+  { fireImmediately: true }
+)
+```
+
+to:
+
+```typescript
+const unsubBoardSetup = useGameStore.subscribe(
+  (state) => state.boardSetup,
+  (boardSetup) => {
+    if (boardSetup && this.geometry) {
+      // Recreate geometry if grid_length changed
+      if (boardSetup.grid_length !== this.gridLength) {
+        this.gridLength = boardSetup.grid_length
+        const width = this.container.clientWidth || 800
+        const height = this.container.clientHeight || 800
+        this.geometry = createBoardGeometry(width, height, 20, this.gridLength)
+        if (this.boardRenderer) {
+          this.boardRenderer.setGeometry(this.geometry)
+        }
+        if (this.tokenRenderer) {
+          this.tokenRenderer.setGeometry(this.geometry)
+        }
+      }
+      this.geometry.setBoardSetup(boardSetup)
+      if (this.boardRenderer) {
+        this.boardRenderer.render()
+      }
+    }
+  },
+  { fireImmediately: true }
+)
+```
+
+**Step 5: Verify no lint errors**
+
+Run: `npm run lint`
+Expected: PASS
+
+**Step 6: Commit**
+
+```bash
+git add lib/pixi/PixiApp.ts
+git commit -m "feat: recreate board geometry when grid_length changes"
+```
+
+---
+
+### Task 4: Remove unused HOME_AREA_BOUNDS import from BoardRenderer
+
+**Files:**
+- Modify: `lib/pixi/BoardRenderer.ts:2`
+
+**Step 1: Update the import**
+
+Change line 2 from:
+```typescript
+import { BoardGeometry, HOME_AREA_BOUNDS } from '@/lib/game/boardGeometry'
+```
+to:
+```typescript
+import { BoardGeometry } from '@/lib/game/boardGeometry'
+```
+
+(`HOME_AREA_BOUNDS` was imported but never used directly — the renderer accesses bounds via `geometry.getHomeAreaPixelBounds()`.)
+
+**Step 2: Verify no lint errors**
+
+Run: `npm run lint`
+Expected: PASS
+
+**Step 3: Commit**
+
+```bash
+git add lib/pixi/BoardRenderer.ts
+git commit -m "chore: remove unused HOME_AREA_BOUNDS import"
+```
+
+---
+
+### Task 5: Build verification
+
+**Step 1: Run lint**
+
+Run: `npm run lint`
+Expected: PASS
+
+**Step 2: Run build**
+
+Run: `npm run build`
+Expected: PASS
+
+**Step 3: Final commit if any fixes needed**
+
+```bash
+git add -A
+git commit -m "fix: resolve build issues from dynamic board rendering"
+```

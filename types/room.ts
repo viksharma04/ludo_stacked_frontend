@@ -111,6 +111,12 @@ export interface CreateRoomRequest {
   n_players: 2 | 3 | 4
 }
 
+// Game settings sent with start_game message
+export interface GameSettings {
+  grid_length: number
+  get_out_rolls: number[]
+}
+
 // Create room response
 export interface CreateRoomResponse {
   room_id: string

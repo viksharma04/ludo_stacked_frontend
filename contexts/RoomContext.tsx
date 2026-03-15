@@ -12,6 +12,7 @@ import type {
   RoomSnapshot,
   ConnectedPayload,
   ErrorPayload,
+  GameSettings,
 } from '@/types/room'
 import type { GameState, GameEvent } from '@/types/game'
 
@@ -33,7 +34,7 @@ interface RoomContextType {
   isInGame: boolean
   toggleReady: () => void
   leaveRoom: () => void
-  startGame: () => void
+  startGame: (gameSettings?: GameSettings) => void
   sendGameMessage: (message: GameMessage) => void
 }
 
@@ -198,10 +199,11 @@ export function RoomProvider({ children, roomCode }: RoomProviderProps) {
     router.push('/lobby')
   }, [wsLeaveRoom, router])
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback((gameSettings?: GameSettings) => {
     wsSendGameMessage({
       type: 'start_game',
       request_id: crypto.randomUUID(),
+      ...(gameSettings && { payload: { game_settings: gameSettings } }),
     })
   }, [wsSendGameMessage])
 

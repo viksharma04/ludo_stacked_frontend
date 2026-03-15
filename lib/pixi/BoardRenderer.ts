@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
-import { BoardGeometry, HOME_AREA_BOUNDS } from '@/lib/game/boardGeometry'
+import { BoardGeometry } from '@/lib/game/boardGeometry'
 import { BOARD_COLORS, Z_LAYERS } from '@/lib/game/constants'
 import { PLAYER_COLORS, type PlayerColor, type Player } from '@/types/game'
 
