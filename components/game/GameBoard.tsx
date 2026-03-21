@@ -6,6 +6,7 @@ import { GameCanvas } from './GameCanvas'
 import { GameHUD } from './GameHUD'
 import { DicePanel } from './DicePanel'
 import { EventLog } from './EventLog'
+import { EventLogDrawer } from './EventLogDrawer'
 import { SplitPopover } from './SplitPopover'
 import { CaptureChoiceModal } from './CaptureChoiceModal'
 import { VictoryScreen } from './VictoryScreen'
@@ -135,13 +136,18 @@ export function GameBoard({
   }, [onReturnToLobby, router])
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-[600px] gap-4 p-4">
+    <div className="flex flex-col h-full min-h-0 sm:min-h-[600px] sm:gap-4 sm:p-4 sm:flex-col lg:flex-row">
+      {/* Mobile top bar - HUD */}
+      <div className="sm:hidden">
+        <GameHUD compact />
+      </div>
+
       {/* Main game board area */}
-      <div ref={boardAreaRef} className="flex-1 relative bg-gray-100 dark:bg-gray-900 rounded-xl overflow-hidden">
+      <div ref={boardAreaRef} className="flex-1 relative bg-gray-100 dark:bg-gray-900 sm:rounded-xl overflow-hidden min-h-0 pb-[52px] sm:pb-0">
         <GameCanvas
           onTokenClick={handleTokenClick}
           onInitialized={handlePixiInitialized}
-          className="w-full h-full min-h-[400px] lg:min-h-0"
+          className="w-full h-full min-h-0 sm:min-h-[400px] lg:min-h-0"
         />
 
         {/* Split popover */}
@@ -167,7 +173,7 @@ export function GameBoard({
         {showPenaltyAnimation && penaltyPlayer && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="bg-red-500 text-white px-8 py-6 rounded-2xl text-center animate-pulse">
-              <div className="text-4xl mb-2">❌</div>
+              <div className="text-4xl mb-2">&#x274C;</div>
               <p className="text-xl font-bold">Three Sixes!</p>
               <p className="text-sm opacity-90">
                 {penaltyPlayer.name} loses their turn
@@ -177,8 +183,18 @@ export function GameBoard({
         )}
       </div>
 
-      {/* Side panel */}
-      <div className="w-full lg:w-80 flex flex-col gap-4">
+      {/* Mobile bottom dice bar */}
+      <div className="sm:hidden">
+        <DicePanel onRoll={rollDice} compact />
+      </div>
+
+      {/* Mobile event log drawer */}
+      <div className="sm:hidden">
+        <EventLogDrawer />
+      </div>
+
+      {/* Desktop/tablet side panel */}
+      <div className="hidden sm:flex w-full lg:w-80 flex-col gap-4">
         <GameHUD />
         <DicePanel onRoll={rollDice} />
         <EventLog />

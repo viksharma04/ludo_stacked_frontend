@@ -37,6 +37,7 @@ const PLAYER_BUTTON_COLORS: Record<PlayerColor, { enabled: string; hover: string
 interface DicePanelProps {
   onRoll: (value: number) => void
   className?: string
+  compact?: boolean
 }
 
 // Dice dot patterns for 1-6
@@ -108,7 +109,7 @@ function DiceFace({
   )
 }
 
-export function DicePanel({ onRoll, className = '' }: DicePanelProps) {
+export function DicePanel({ onRoll, className = '', compact = false }: DicePanelProps) {
   const diceValue = useDiceValue()
   const diceRolling = useDiceRolling()
   const rollReason = useRollReason()
@@ -158,6 +159,88 @@ export function DicePanel({ onRoll, className = '' }: DicePanelProps) {
     }
   }
   const bonusMessage = getBonusRollMessage()
+
+  if (compact) {
+    return (
+      <div
+        className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 z-40 ${className}`}
+      >
+        <div className="flex items-center gap-3">
+          {/* Small dice face */}
+          <div
+            className={`relative w-10 h-10 bg-white rounded-md shadow border border-gray-200 dark:border-gray-600 flex-shrink-0 ${isRolling ? 'animate-bounce' : ''}`}
+          >
+            <svg viewBox="0 0 100 100" className="w-full h-full">
+              {(DICE_DOTS[diceValue ?? 1] || DICE_DOTS[1]).map((dot, index) => (
+                <circle
+                  key={index}
+                  cx={dot.cx}
+                  cy={dot.cy}
+                  r={10}
+                  fill={isRolling ? '#9CA3AF' : '#1F2937'}
+                  className={isRolling ? 'animate-pulse' : ''}
+                />
+              ))}
+            </svg>
+          </div>
+
+          {/* Status text */}
+          <div className="flex-1 min-w-0">
+            {bonusMessage && !isRolling && (
+              <p className="text-xs font-medium text-green-600 dark:text-green-400 truncate animate-pulse">
+                {bonusMessage}
+              </p>
+            )}
+            {rollsToAllocate.length > 0 && !isRolling && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                Rolls: <span className="font-medium text-accent">{rollsToAllocate.join(', ')}</span>
+              </p>
+            )}
+            {!isMyTurn && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Waiting for opponent...
+              </p>
+            )}
+            {isMyTurn && currentEvent === 'player_choice' && (
+              <p className="text-xs text-accent font-medium">
+                Select a piece to move
+              </p>
+            )}
+            {diceValue !== null && !isRolling && !bonusMessage && rollsToAllocate.length === 0 && isMyTurn && currentEvent !== 'player_choice' && !showRollButton && (
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                Rolled: {diceValue}
+              </p>
+            )}
+          </div>
+
+          {/* Roll button */}
+          {showRollButton ? (
+            <button
+              onClick={handleRoll}
+              disabled={!canRoll || isRolling}
+              className={`
+                px-4 py-2 rounded-lg font-semibold text-white text-sm flex-shrink-0
+                transition-all duration-200
+                ${
+                  canRoll && !isRolling
+                    ? `${buttonColors.enabled} ${buttonColors.hover} active:scale-95 cursor-pointer`
+                    : 'bg-gray-400 cursor-not-allowed'
+                }
+              `}
+            >
+              {isRolling ? 'Rolling...' : 'Roll'}
+            </button>
+          ) : (
+            diceValue !== null && !isRolling && (
+              <div className="text-lg font-bold text-gray-900 dark:text-white flex-shrink-0 w-8 text-center">
+                {diceValue}
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
