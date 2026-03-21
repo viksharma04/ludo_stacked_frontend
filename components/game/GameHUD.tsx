@@ -32,9 +32,10 @@ function getColorBorderClass(color: PlayerColor): string {
 
 interface GameHUDProps {
   className?: string
+  compact?: boolean
 }
 
-export function GameHUD({ className = '' }: GameHUDProps) {
+export function GameHUD({ className = '', compact = false }: GameHUDProps) {
   const players = usePlayers()
   const currentPlayer = useCurrentPlayer()
   const isMyTurn = useIsMyTurn()
@@ -44,6 +45,51 @@ export function GameHUD({ className = '' }: GameHUDProps) {
     () => computePlayerProgress(players),
     [players]
   )
+
+  if (compact) {
+    return (
+      <div className={`bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 py-2 ${className}`}>
+        {/* Turn indicator row */}
+        <div className="flex items-center gap-2">
+          {currentPlayer && (
+            <>
+              <div
+                className={`w-5 h-5 rounded-full ${getColorClass(currentPlayer.color)} shadow-sm`}
+              />
+              <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {currentPlayer.name}
+              </span>
+            </>
+          )}
+          {isMyTurn && (
+            <span className="text-xs text-accent font-medium ml-auto">
+              {isAnimating ? 'Playing...' : 'Your turn!'}
+            </span>
+          )}
+        </div>
+
+        {/* Mini progress bars */}
+        <div className="flex gap-2 mt-1.5">
+          {playerProgress.map((player) => (
+            <div key={player.playerId} className="flex-1 flex items-center gap-1">
+              <div
+                className={`w-2.5 h-2.5 rounded-full ${getColorClass(player.color)} flex-shrink-0`}
+              />
+              <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${getColorClass(player.color)} transition-all duration-300`}
+                  style={{ width: `${player.progress * 100}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                {player.heavenCount}/{player.totalTokens}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`space-y-4 ${className}`}>

@@ -7,6 +7,8 @@
   --foreground: #171717;
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
+  --mobile-bar-h: 52px;
+  --mobile-bar-offset: calc(var(--mobile-bar-h) + env(safe-area-inset-bottom, 0px));
 }
 
 .dark {
@@ -92,4 +94,17 @@ body {
 
 .animate-slide-in-down {
   animation: slide-in-down 0.3s ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@utility animate-slide-up {
+  animation: slide-up 0.3s ease-out;
 }
