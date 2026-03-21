@@ -143,7 +143,7 @@ export function GameBoard({
       </div>
 
       {/* Main game board area */}
-      <div ref={boardAreaRef} className="flex-1 relative bg-gray-100 dark:bg-gray-900 sm:rounded-xl overflow-hidden min-h-0 pb-[52px] sm:pb-0">
+      <div ref={boardAreaRef} className="flex-1 relative bg-gray-100 dark:bg-gray-900 sm:rounded-xl overflow-hidden min-h-0 pb-[var(--mobile-bar-offset)] sm:pb-0">
         <GameCanvas
           onTokenClick={handleTokenClick}
           onInitialized={handlePixiInitialized}

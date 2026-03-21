@@ -163,7 +163,7 @@ export function DicePanel({ onRoll, className = '', compact = false }: DicePanel
   if (compact) {
     return (
       <div
-        className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 z-40 ${className}`}
+        className={`fixed bottom-0 left-0 right-0 h-[var(--mobile-bar-h)] bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 pb-[env(safe-area-inset-bottom,0px)] z-40 ${className}`}
       >
         <div className="flex items-center gap-3">
           {/* Small dice face */}

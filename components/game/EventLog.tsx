@@ -94,10 +94,7 @@ export function EventLog({ bare = false }: EventLogProps) {
 
   if (bare) {
     return (
-      <div
-        ref={scrollRef}
-        className="overflow-y-auto p-2 space-y-1"
-      >
+      <div className="space-y-1 p-2">
         {renderEntries()}
       </div>
     )
