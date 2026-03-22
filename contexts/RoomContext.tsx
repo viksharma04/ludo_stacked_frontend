@@ -53,6 +53,10 @@ export function RoomProvider({ children, roomCode }: RoomProviderProps) {
   const [isInGame, setIsInGame] = useState(false)
 
   const sequenceManagerRef = useRef<SequenceManager>(createSequenceManager())
+  // Ref for userId to avoid stale closure in handleGameMessage.
+  // On reconnect, handleConnected sets this synchronously before game_state arrives,
+  // while React state (userId) won't update until the next render.
+  const userIdRef = useRef<string | null>(null)
 
   // Reset game store when entering a new room to clear stale state (e.g. victory screen)
   useEffect(() => {
@@ -62,14 +66,20 @@ export function RoomProvider({ children, roomCode }: RoomProviderProps) {
   const handleConnected = useCallback((payload: ConnectedPayload) => {
     setRoom(payload.room)
     setUserId(payload.user_id)
+    userIdRef.current = payload.user_id
     // Initialize game store with player ID
     useGameStore.getState().setMyPlayerId(payload.user_id)
+    // If reconnecting to a room that's already in game, transition to game UI
+    // (the server will also auto-push a game_state message with full state)
+    if (payload.room.status === 'in_game') {
+      setIsInGame(true)
+    }
   }, [])
 
   const handleRoomUpdated = useCallback((updatedRoom: RoomSnapshot) => {
     setRoom(updatedRoom)
-    // Check if game has started
-    if (updatedRoom.status === 'in_progress') {
+    // Check if game has started (backend room status is 'in_game')
+    if (updatedRoom.status === 'in_game') {
       setIsInGame(true)
     }
   }, [])
@@ -86,16 +96,21 @@ export function RoomProvider({ children, roomCode }: RoomProviderProps) {
   }, [])
 
   const handleGameMessage = useCallback((message: GameMessage) => {
+    // Read userId from ref (set synchronously in handleConnected) to avoid
+    // stale closure — React state may not have updated yet when server
+    // sends game_state immediately after authenticated.
+    const currentUserId = userIdRef.current
+
     switch (message.type) {
       // Host receives game_started with full game state
       case 'game_started': {
         const payload = message.payload as { game_state: GameState; events: GameEvent[] }
-        if (!payload || !userId) return
+        if (!payload || !currentUserId) return
 
         // Apply full game state
         if (payload.game_state) {
           sequenceManagerRef.current.reset(payload.game_state.event_seq - 1)
-          applyGameState(payload.game_state, userId)
+          applyGameState(payload.game_state, currentUserId)
         }
 
         // Process initial events
@@ -130,15 +145,15 @@ export function RoomProvider({ children, roomCode }: RoomProviderProps) {
       }
 
       case 'game_state': {
-        const payload = message.payload as { state: GameState }
-        const state = payload?.state
-        if (!state || !userId) return
+        const payload = message.payload as { game_state: GameState }
+        const state = payload?.game_state
+        if (!state || !currentUserId) return
 
         // Reset sequence manager to match server state
         sequenceManagerRef.current.reset(state.event_seq - 1)
 
         // Apply full state
-        applyGameState(state, userId)
+        applyGameState(state, currentUserId)
 
         // Set in game if game is in progress
         if (state.phase === 'in_progress') {
@@ -156,7 +171,7 @@ export function RoomProvider({ children, roomCode }: RoomProviderProps) {
         break
       }
     }
-  }, [userId])
+  }, [])
 
   const {
     isConnected,

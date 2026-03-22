@@ -18,6 +18,7 @@ import type {
   AnimationType,
   CaptureOption,
   HighlightedStack,
+  RollMoveGroup,
   GameState,
 } from '@/types/game'
 import { ANIMATION_DURATIONS } from './constants'
@@ -314,7 +315,10 @@ export function processEvents(events: GameEvent[]): void {
 }
 
 /**
- * Apply a full game state (for reconnection)
+ * Apply a full game state (for reconnection).
+ * Reconstructs interactive UI state (highlights, available moves) from
+ * the Turn snapshot since the server's GameState doesn't include the
+ * structured available_moves from awaiting_choice events.
  */
 export function applyGameState(
   state: GameState,
@@ -337,5 +341,51 @@ export function applyGameState(
   if (state.current_turn) {
     store.setCurrentTurn(state.current_turn)
     store.setCurrentEvent(state.current_event)
+
+    const turn = state.current_turn
+    const isMyTurn = turn.player_id === myPlayerId
+
+    // Restore interactive state for player_choice (piece selection)
+    if (state.current_event === 'player_choice' && turn.legal_moves.length > 0) {
+      // Reconstruct available_moves from Turn data.
+      // Each unique roll maps to all legal stacks — the server validates
+      // the actual legality, so overly-broad options are safe.
+      const uniqueRolls = [...new Set(turn.rolls_to_allocate)]
+      const availableMoves: RollMoveGroup[] = uniqueRolls.map(roll => ({
+        roll,
+        move_groups: turn.legal_moves.map(stackId => ({
+          stack_id: stackId,
+          moves: [stackId],
+        })),
+      }))
+      store.setAvailableMoves(availableMoves)
+
+      if (isMyTurn) {
+        const highlighted: HighlightedStack[] = turn.legal_moves.map(stackId => ({
+          stackId,
+          playerId: turn.player_id,
+          type: 'selectable' as const,
+        }))
+        store.setHighlightedTokens(highlighted)
+      }
+    }
+
+    // Restore interactive state for capture_choice
+    if (state.current_event === 'capture_choice' && turn.pending_capture && isMyTurn) {
+      const pending = turn.pending_capture
+      const options: CaptureOption[] = pending.capturable_targets.map(target => {
+        const [playerId, stackId] = target.split(':')
+        const player = state.players.find(p => p.player_id === playerId)
+        const stack = player?.stacks.find(s => s.stack_id === stackId)
+        return {
+          target,
+          playerColor: player?.color ?? 'red',
+          stackId,
+          stackHeight: stack?.height ?? 1,
+        }
+      })
+      store.setCaptureOptions(options)
+      store.setShowCaptureChoiceModal(true)
+    }
   }
 }
