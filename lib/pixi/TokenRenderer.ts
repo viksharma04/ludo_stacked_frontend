@@ -74,7 +74,10 @@ export class TokenRenderer {
 
   updateTokens(players: Player[], storeAnimatingTokenIds?: string[]): void {
     const currentKeys = new Set<string>()
+    // Track base positions for non-animating stacks to detect sharing
+    const positionGroups = new Map<string, string[]>() // "x,y" -> keys[]
 
+    // First pass: create/update sprites, compute base positions
     players.forEach((player) => {
       player.stacks.forEach((stack, idx) => {
         const key = TokenRenderer.makeKey(player.player_id, stack.stack_id)
@@ -107,7 +110,7 @@ export class TokenRenderer {
           }
         }
 
-        // Update position (skip if animating)
+        // Compute base position (skip if animating)
         if (!isAnimating) {
           const position = this.geometry.getTokenPosition(
             player.color,
@@ -118,6 +121,15 @@ export class TokenRenderer {
           )
           sprite.graphics.x = position.x
           sprite.graphics.y = position.y
+
+          // Group by base position for offset calculation
+          if (stack.state !== 'heaven' && stack.state !== 'hell') {
+            const posKey = `${Math.round(position.x)},${Math.round(position.y)}`
+            if (!positionGroups.has(posKey)) {
+              positionGroups.set(posKey, [])
+            }
+            positionGroups.get(posKey)!.push(key)
+          }
         }
 
         // Hide stacks in heaven after animation; hide pending animation sprites
@@ -125,6 +137,21 @@ export class TokenRenderer {
         sprite.graphics.visible = (stack.state !== 'heaven' || isAnimating) && !isPending
       })
     })
+
+    // Second pass: apply x-offsets for stacks sharing the same position
+    const cellSize = this.geometry.getCellSize()
+    const offsetStep = cellSize * 0.3
+
+    for (const [, keys] of positionGroups) {
+      if (keys.length <= 1) continue
+      const totalWidth = (keys.length - 1) * offsetStep
+      keys.forEach((key, i) => {
+        const sprite = this.stacks.get(key)
+        if (sprite) {
+          sprite.graphics.x += -totalWidth / 2 + i * offsetStep
+        }
+      })
+    }
 
     // Remove stacks that no longer exist (skip if still animating)
     for (const [key, sprite] of this.stacks) {
@@ -153,7 +180,7 @@ export class TokenRenderer {
     this.drawToken(graphics, radius, colorConfig.primary, colorConfig.secondary)
 
     // Create badge for stack height
-    const badge = this.createStackBadge(radius)
+    const badge = this.createStackBadge(radius, colorConfig.secondary)
     this.updateBadgeCount({ badge } as StackSprite, height)
     badge.visible = height > 1
     graphics.addChild(badge)
@@ -185,7 +212,7 @@ export class TokenRenderer {
     }
   }
 
-  private createStackBadge(tokenRadius: number): Container {
+  private createStackBadge(tokenRadius: number, playerColor: number): Container {
     const badge = new Container()
     const badgeRadius = tokenRadius * 0.45
 
@@ -193,7 +220,7 @@ export class TokenRenderer {
 
     const bg = new Graphics()
     bg.circle(0, 0, badgeRadius)
-    bg.fill({ color: 0x000000, alpha: 0.8 })
+    bg.fill({ color: playerColor })
     bg.circle(0, 0, badgeRadius)
     bg.stroke({ color: 0xffffff, width: 1.5 })
     badge.addChild(bg)
@@ -230,21 +257,42 @@ export class TokenRenderer {
     graphics.clear()
 
     const scaledRadius = radius * scale
+    const w = scaledRadius * 1.5
+    const h = scaledRadius * 1.8
+
+    // Shield path helper: flat top with rounded shoulders, tapers to a point at bottom
+    const drawShield = (ox: number, oy: number) => {
+      const top = oy - h / 2
+      const bottom = oy + h / 2
+      const left = ox - w / 2
+      const right = ox + w / 2
+      const r = w * 0.25 // shoulder radius
+
+      graphics.moveTo(left + r, top)
+      graphics.lineTo(right - r, top)
+      graphics.quadraticCurveTo(right, top, right, top + r)
+      graphics.lineTo(right, oy)
+      graphics.quadraticCurveTo(right, bottom - h * 0.15, ox, bottom)
+      graphics.quadraticCurveTo(left, bottom - h * 0.15, left, oy)
+      graphics.lineTo(left, top + r)
+      graphics.quadraticCurveTo(left, top, left + r, top)
+      graphics.closePath()
+    }
 
     // Shadow
-    graphics.circle(2, 2, scaledRadius)
-    graphics.fill({ color: 0x000000, alpha: 0.3 })
+    drawShield(2, 2)
+    graphics.fill({ color: 0x000000, alpha: 0.1 })
 
-    // Main circle
-    graphics.circle(0, 0, scaledRadius)
-    graphics.fill({ color: fillColor })
+    // Main shape
+    drawShield(0, 0)
+    graphics.fill({ color: fillColor, alpha: 0.4 })
 
     // Outline
-    graphics.circle(0, 0, scaledRadius)
+    drawShield(0, 0)
     graphics.stroke({ color: strokeColor, width: TOKEN_VISUAL.OUTLINE_WIDTH })
 
     // Inner highlight
-    graphics.circle(-scaledRadius * 0.3, -scaledRadius * 0.3, scaledRadius * 0.2)
+    graphics.circle(-scaledRadius * 0.2, -scaledRadius * 0.25, scaledRadius * 0.15)
     graphics.fill({ color: 0xffffff, alpha: 0.4 })
   }
 
@@ -298,9 +346,26 @@ export class TokenRenderer {
         }
 
         if (sprite.isHighlighted) {
-          sprite.graphics.circle(0, 0, radius * scale * 1.2)
+          const hRadius = radius * scale * 1.2
+          const hw = hRadius * 1.5
+          const hh = hRadius * 1.8
+          const hTop = -hh / 2
+          const hBottom = hh / 2
+          const hLeft = -hw / 2
+          const hRight = hw / 2
+          const hr = hw * 0.25
+
+          sprite.graphics.moveTo(hLeft + hr, hTop)
+          sprite.graphics.lineTo(hRight - hr, hTop)
+          sprite.graphics.quadraticCurveTo(hRight, hTop, hRight, hTop + hr)
+          sprite.graphics.lineTo(hRight, 0)
+          sprite.graphics.quadraticCurveTo(hRight, hBottom - hh * 0.15, 0, hBottom)
+          sprite.graphics.quadraticCurveTo(hLeft, hBottom - hh * 0.15, hLeft, 0)
+          sprite.graphics.lineTo(hLeft, hTop + hr)
+          sprite.graphics.quadraticCurveTo(hLeft, hTop, hLeft + hr, hTop)
+          sprite.graphics.closePath()
           sprite.graphics.stroke({
-            color: 0xffffff,
+            color: colorConfig.secondary,
             width: 3,
             alpha: 0.3 + Math.sin(this.pulseTime * 2) * 0.2,
           })

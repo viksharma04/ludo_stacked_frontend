@@ -70,7 +70,7 @@ export function SplitPopover({
     }
   }, [onDismiss])
 
-  const color = hexToCSS(PLAYER_COLORS[playerColor].primary)
+  const color = hexToCSS(PLAYER_COLORS[playerColor].homestretch)
 
   // Flatten all (moveId, roll, tokenCount) choices
   const choices: { moveId: string; roll: number; tokenCount: number }[] = []

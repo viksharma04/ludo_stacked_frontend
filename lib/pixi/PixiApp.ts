@@ -30,7 +30,7 @@ export class PixiApp {
     await this.app.init({
       width,
       height,
-      backgroundColor: 0xf5f5dc,
+      backgroundColor: 0x000000,
       antialias: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,

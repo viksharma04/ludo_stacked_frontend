@@ -144,10 +144,6 @@ types/
 ├── auth.ts                    # Authentication types
 ├── profile.ts                 # User profile types
 └── room.ts                    # Room & WebSocket types
-
-specs/                         # Game specification documents
-├── rolls_granted.md           # Roll mechanics documentation
-└── ...
 ```
 
 ## Authentication
@@ -273,12 +269,8 @@ Configured in `app/globals.css` via `--accent` and `--accent-hover` CSS variable
 ### Architecture & Reference
 - `docs/ARCHITECTURE.md` - Comprehensive technical architecture documentation
 - `docs/COMPONENTS.md` - Detailed component reference guide
+- `docs/BOARD_SYSTEM_DESIGN.md` - Complete reference for board design, movement, and related game logic
 - `CLAUDE.md` - Project guidelines for Claude Code
-
-### Specifications
-- `frontend_game_integration.md` - WebSocket protocol and game events
-- `game_start_implementation.md` - Game start flow
-- `specs/rolls_granted.md` - Roll mechanics specification
 
 ## Learn More
 

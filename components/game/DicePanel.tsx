@@ -18,19 +18,19 @@ import type { PlayerColor } from '@/types/game'
 const PLAYER_BUTTON_COLORS: Record<PlayerColor, { enabled: string; hover: string }> = {
   red: {
     enabled: 'bg-red-500',
-    hover: 'hover:bg-red-600',
+    hover: 'hover:bg-red-400',
   },
   blue: {
     enabled: 'bg-blue-500',
-    hover: 'hover:bg-blue-600',
+    hover: 'hover:bg-blue-400',
   },
   green: {
     enabled: 'bg-green-500',
-    hover: 'hover:bg-green-600',
+    hover: 'hover:bg-green-400',
   },
   yellow: {
     enabled: 'bg-yellow-500',
-    hover: 'hover:bg-yellow-600',
+    hover: 'hover:bg-yellow-300',
   },
 }
 

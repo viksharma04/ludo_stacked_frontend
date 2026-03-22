@@ -21,7 +21,7 @@ export const BOARD_COLORS = {
   TRACK: 0xffffff, // White track squares
   SAFE_SPACE: 0xffd700, // Gold for safe spaces
   CENTER: 0x808080, // Gray center
-  GRID_LINE: 0xcccccc, // Light gray grid lines
+  GRID_LINE: 0xf5f3f2, // Light gray grid lines
 } as const
 
 // Token visual constants

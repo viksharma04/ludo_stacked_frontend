@@ -43,4 +43,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Plans and specs for AI workflows
 docs/plans/
+specs/
