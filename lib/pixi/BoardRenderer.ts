@@ -4,7 +4,7 @@ import { BOARD_COLORS, Z_LAYERS } from '@/lib/game/constants'
 import { PLAYER_COLORS, type PlayerColor, type Player } from '@/types/game'
 
 // Enable to show track position numbers for debugging
-const DEBUG_SHOW_POSITIONS = true
+const DEBUG_SHOW_POSITIONS = false
 
 export class BoardRenderer {
   private app: Application
@@ -94,7 +94,7 @@ export class BoardRenderer {
       areaBounds.width,
       areaBounds.height
     )
-    this.boardGraphics.fill({ color: colorConfig.home })
+    this.boardGraphics.fill({ color: colorConfig.homestretch, alpha: 0.8 })
 
     // Draw border
     this.boardGraphics.rect(
@@ -103,18 +103,39 @@ export class BoardRenderer {
       areaBounds.width,
       areaBounds.height
     )
-    this.boardGraphics.stroke({ color: colorConfig.secondary, width: 2 })
+    this.boardGraphics.stroke({ color: 0xffffff, width: 0 })
 
     // Draw home positions (where tokens wait in hell)
     const homePositions = this.geometry.getHomePositions(color)
     const cellSize = this.geometry.getCellSize()
     const tokenRadius = cellSize * 0.3
 
+    const w = tokenRadius * 1.5
+    const h = tokenRadius * 1.8
+
+    const drawShield = (ox: number, oy: number) => {
+      const top = oy - h / 2
+      const bottom = oy + h / 2
+      const left = ox - w / 2
+      const right = ox + w / 2
+      const r = w * 0.25
+
+      this.boardGraphics.moveTo(left + r, top)
+      this.boardGraphics.lineTo(right - r, top)
+      this.boardGraphics.quadraticCurveTo(right, top, right, top + r)
+      this.boardGraphics.lineTo(right, oy)
+      this.boardGraphics.quadraticCurveTo(right, bottom - h * 0.15, ox, bottom)
+      this.boardGraphics.quadraticCurveTo(left, bottom - h * 0.15, left, oy)
+      this.boardGraphics.lineTo(left, top + r)
+      this.boardGraphics.quadraticCurveTo(left, top, left + r, top)
+      this.boardGraphics.closePath()
+    }
+
     homePositions.forEach((pos) => {
-      // Draw circle outline for home position
-      this.boardGraphics.circle(pos.x, pos.y, tokenRadius)
+      // Draw shield outline for home position
+      drawShield(pos.x, pos.y)
       this.boardGraphics.fill({ color: 0xffffff })
-      this.boardGraphics.circle(pos.x, pos.y, tokenRadius)
+      drawShield(pos.x, pos.y)
       this.boardGraphics.stroke({ color: colorConfig.secondary, width: 2 })
     })
   }
@@ -161,8 +182,8 @@ export class BoardRenderer {
         const colorConfig = PLAYER_COLORS[player.color]
 
         // Draw a colored circle indicator at start position
-        this.startingMarkerGraphics.circle(pos.x, pos.y, cellSize * 0.15)
-        this.startingMarkerGraphics.fill({ color: colorConfig.primary })
+        this.startingMarkerGraphics.circle(pos.x, pos.y, cellSize * 0.18)
+        this.startingMarkerGraphics.fill({ color: colorConfig.homestretch , alpha: 1 })
       }
     })
   }
@@ -187,7 +208,7 @@ export class BoardRenderer {
         cellSize,
         cellSize
       )
-      this.boardGraphics.stroke({ color: colorConfig.secondary, width: 1 })
+      this.boardGraphics.stroke({ color: colorConfig.secondary, width: 0 })
     })
   }
 
@@ -240,7 +261,7 @@ export class BoardRenderer {
       }
 
       this.boardGraphics.closePath()
-      this.boardGraphics.fill({ color: colorConfig.primary, alpha: 0.7 })
+      this.boardGraphics.fill({ color: colorConfig.homestretch, alpha: 1 })
     })
 
     // Draw center border
@@ -250,7 +271,7 @@ export class BoardRenderer {
       centerSize,
       centerSize
     )
-    this.boardGraphics.stroke({ color: 0x666666, width: 2 })
+    this.boardGraphics.stroke({ color: 0xffffff, width: 0})
   }
 
   private drawGridLines(): void {
@@ -266,7 +287,7 @@ export class BoardRenderer {
 
     safePositions.forEach((pos) => {
       // Draw star shape for safe space
-      this.drawStar(pos.x, pos.y, cellSize * 0.35, 5)
+      this.drawStar(pos.x, pos.y, cellSize * 0.35, 9)
     })
   }
 
@@ -279,9 +300,9 @@ export class BoardRenderer {
       cy + radius * Math.sin(-Math.PI / 2)
     )
 
-    for (let i = 0; i < points * 2; i++) {
+    for (let i = 1; i < points * 2; i++) {
       const r = i % 2 === 0 ? radius : innerRadius
-      const angle = -Math.PI / 2 + (i + 1) * step
+      const angle = -Math.PI / 2 + i * step
       this.safeSpaceGraphics.lineTo(
         cx + r * Math.cos(angle),
         cy + r * Math.sin(angle)
