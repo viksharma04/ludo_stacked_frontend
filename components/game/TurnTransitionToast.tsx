@@ -8,23 +8,23 @@ const PLAYER_COLOR_STYLES: Record<
   { bg: string; border: string; text: string }
 > = {
   red: {
-    bg: 'bg-red-500',
-    border: 'border-red-600',
-    text: 'text-white',
+    bg: 'bg-red-300',
+    border: 'border-red-400',
+    text: 'text-gray-900',
   },
   blue: {
-    bg: 'bg-blue-500',
-    border: 'border-blue-600',
-    text: 'text-white',
+    bg: 'bg-blue-300',
+    border: 'border-blue-400',
+    text: 'text-gray-900',
   },
   green: {
-    bg: 'bg-green-500',
-    border: 'border-green-600',
-    text: 'text-white',
+    bg: 'bg-green-300',
+    border: 'border-green-400',
+    text: 'text-gray-900',
   },
   yellow: {
-    bg: 'bg-yellow-400',
-    border: 'border-yellow-500',
+    bg: 'bg-yellow-200',
+    border: 'border-yellow-300',
     text: 'text-gray-900',
   },
 }

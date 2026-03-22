@@ -12,20 +12,20 @@ import type { PlayerColor } from '@/types/game'
 
 function getColorClass(color: PlayerColor): string {
   const colorMap: Record<PlayerColor, string> = {
-    red: 'bg-red-500',
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    yellow: 'bg-yellow-400',
+    red: 'bg-red-300',
+    blue: 'bg-blue-300',
+    green: 'bg-green-300',
+    yellow: 'bg-yellow-200',
   }
   return colorMap[color] || 'bg-gray-500'
 }
 
 function getColorBorderClass(color: PlayerColor): string {
   const colorMap: Record<PlayerColor, string> = {
-    red: 'border-red-500',
-    blue: 'border-blue-500',
-    green: 'border-green-500',
-    yellow: 'border-yellow-400',
+    red: 'border-red-300',
+    blue: 'border-blue-300',
+    green: 'border-green-300',
+    yellow: 'border-yellow-200',
   }
   return colorMap[color] || 'border-gray-500'
 }

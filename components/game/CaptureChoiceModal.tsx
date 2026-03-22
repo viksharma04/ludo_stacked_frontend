@@ -49,7 +49,7 @@ export function CaptureChoiceModal({ onSelectChoice }: CaptureChoiceModalProps) 
                 <div className="flex items-center gap-3">
                   <div
                     className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
-                    style={{ backgroundColor: `#${PLAYER_COLORS[option.playerColor].primary.toString(16).padStart(6, '0')}` }}
+                    style={{ backgroundColor: `#${PLAYER_COLORS[option.playerColor].homestretch.toString(16).padStart(6, '0')}` }}
                   />
                   <div>
                     <span className="font-medium text-gray-900 dark:text-white">

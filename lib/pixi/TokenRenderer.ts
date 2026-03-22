@@ -346,9 +346,26 @@ export class TokenRenderer {
         }
 
         if (sprite.isHighlighted) {
-          sprite.graphics.circle(0, 0, radius * scale * 1.2)
+          const hRadius = radius * scale * 1.2
+          const hw = hRadius * 1.5
+          const hh = hRadius * 1.8
+          const hTop = -hh / 2
+          const hBottom = hh / 2
+          const hLeft = -hw / 2
+          const hRight = hw / 2
+          const hr = hw * 0.25
+
+          sprite.graphics.moveTo(hLeft + hr, hTop)
+          sprite.graphics.lineTo(hRight - hr, hTop)
+          sprite.graphics.quadraticCurveTo(hRight, hTop, hRight, hTop + hr)
+          sprite.graphics.lineTo(hRight, 0)
+          sprite.graphics.quadraticCurveTo(hRight, hBottom - hh * 0.15, 0, hBottom)
+          sprite.graphics.quadraticCurveTo(hLeft, hBottom - hh * 0.15, hLeft, 0)
+          sprite.graphics.lineTo(hLeft, hTop + hr)
+          sprite.graphics.quadraticCurveTo(hLeft, hTop, hLeft + hr, hTop)
+          sprite.graphics.closePath()
           sprite.graphics.stroke({
-            color: 0xffffff,
+            color: colorConfig.secondary,
             width: 3,
             alpha: 0.3 + Math.sin(this.pulseTime * 2) * 0.2,
           })

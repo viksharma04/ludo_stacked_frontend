@@ -11,10 +11,10 @@ interface VictoryScreenProps {
 
 function getColorClass(color: PlayerColor): string {
   const colorMap: Record<PlayerColor, string> = {
-    red: 'bg-red-500',
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    yellow: 'bg-yellow-400',
+    red: 'bg-red-300',
+    blue: 'bg-blue-300',
+    green: 'bg-green-300',
+    yellow: 'bg-yellow-200',
   }
   return colorMap[color] || 'bg-gray-500'
 }
