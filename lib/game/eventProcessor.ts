@@ -359,10 +359,12 @@ export function applyGameState(
     myPlayerId
   )
 
-  if (state.current_turn) {
-    store.setCurrentTurn(state.current_turn)
-    store.setCurrentEvent(state.current_event)
+  // Always synchronize turn/event state, even when there is no active turn,
+  // so stale values from a previous session don't persist.
+  store.setCurrentTurn(state.current_turn)
+  store.setCurrentEvent(state.current_event)
 
+  if (state.current_turn) {
     const turn = state.current_turn
     const isMyTurn = turn.player_id === myPlayerId
 
