@@ -145,8 +145,8 @@ export function RoomProvider({ children, roomCode }: RoomProviderProps) {
       }
 
       case 'game_state': {
-        const payload = message.payload as { game_state: GameState }
-        const state = payload?.game_state
+        const payload = message.payload as { state: GameState }
+        const state = payload?.state
         if (!state || !currentUserId) return
 
         // Reset sequence manager to match server state

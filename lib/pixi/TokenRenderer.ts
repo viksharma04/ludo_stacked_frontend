@@ -301,6 +301,9 @@ export class TokenRenderer {
       const isHighlighted = this.highlightedKeys.has(key)
       const isSelected = key === this.selectedKey
 
+      const wasActive = sprite.isHighlighted || sprite.isSelected
+      const isActive = isHighlighted || isSelected
+
       sprite.isHighlighted = isHighlighted
       sprite.isSelected = isSelected
 
@@ -313,6 +316,18 @@ export class TokenRenderer {
       }
 
       sprite.graphics.cursor = isHighlighted ? 'pointer' : 'default'
+
+      // Redraw at normal scale when transitioning out of highlight/selected state
+      // to clear the frozen pulse scale and glow outline
+      if (wasActive && !isActive) {
+        const colorConfig = PLAYER_COLORS[sprite.playerColor]
+        const cellSize = this.geometry.getCellSize()
+        const radius = cellSize * TOKEN_VISUAL.RADIUS_RATIO
+        this.drawToken(sprite.graphics, radius, colorConfig.primary, colorConfig.secondary)
+        if (!sprite.graphics.children.includes(sprite.badge)) {
+          sprite.graphics.addChild(sprite.badge)
+        }
+      }
     }
   }
 

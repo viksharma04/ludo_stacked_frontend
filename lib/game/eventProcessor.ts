@@ -30,6 +30,18 @@ type EventHandler<T extends GameEvent = GameEvent> = (
   store: GameStore
 ) => void
 
+// Generate all valid move IDs for a stack, including suffix-based splits.
+// e.g. "stack_1_2_3" → ["stack_1_2_3", "stack_2_3", "stack_3"]
+function generateSplitMoveIds(stackId: string): string[] {
+  const parts = stackId.replace('stack_', '').split('_')
+  if (parts.length <= 1) return [stackId]
+  const ids: string[] = []
+  for (let i = 0; i < parts.length; i++) {
+    ids.push('stack_' + parts.slice(i).join('_'))
+  }
+  return ids
+}
+
 // Generate unique animation ID
 let animationIdCounter = 0
 function generateAnimationId(): string {
@@ -326,6 +338,15 @@ export function applyGameState(
 ): void {
   const store = useGameStore.getState()
 
+  // Clear all interactive UI state before repopulating — prevents stale
+  // highlights / modals from a previous current_event persisting across reconnects.
+  store.setAvailableMoves([])
+  store.setSelectedRoll(null)
+  store.setCaptureOptions([])
+  store.clearHighlightedTokens()   // also clears selectedStackId
+  store.setShowMoveChoiceModal(false)
+  store.setShowCaptureChoiceModal(false)
+
   store.initializeFromGameState(
     {
       phase: state.phase,
@@ -350,12 +371,14 @@ export function applyGameState(
       // Reconstruct available_moves from Turn data.
       // Each unique roll maps to all legal stacks — the server validates
       // the actual legality, so overly-broad options are safe.
+      // Generate suffix split IDs for each stack so split move options
+      // are available after reconnect (e.g. stack_1_2_3 → [stack_1_2_3, stack_2_3, stack_3]).
       const uniqueRolls = [...new Set(turn.rolls_to_allocate)]
       const availableMoves: RollMoveGroup[] = uniqueRolls.map(roll => ({
         roll,
         move_groups: turn.legal_moves.map(stackId => ({
           stack_id: stackId,
-          moves: [stackId],
+          moves: generateSplitMoveIds(stackId),
         })),
       }))
       store.setAvailableMoves(availableMoves)

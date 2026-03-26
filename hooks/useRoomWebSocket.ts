@@ -231,6 +231,7 @@ export function useRoomWebSocket({
       }
 
       ws.onclose = (event) => {
+        wsRef.current = null
         setIsConnected(false)
         setIsConnecting(false)
         clearTimers()
