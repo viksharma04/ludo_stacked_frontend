@@ -326,16 +326,18 @@ export function useRoomWebSocket({
   // Retry connection when accessToken becomes available after initial mount
   // (handles page refresh where AuthContext loads session asynchronously)
   useEffect(() => {
-    if (
-      accessToken &&
-      !wsRef.current &&
-      !isConnected &&
-      !isConnecting
-    ) {
+    const ws = wsRef.current
+
+    const socketInactive =
+      !ws ||
+      ws.readyState === WebSocket.CLOSED ||
+      ws.readyState === WebSocket.CLOSING
+
+    if (accessToken && socketInactive && !isConnected && !isConnecting) {
       shouldReconnectRef.current = true
       connectRef.current()
     }
-  }, [accessToken, isConnected, isConnecting])
+  }, [accessToken])
 
   return {
     isConnected,
